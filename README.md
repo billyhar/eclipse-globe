@@ -48,7 +48,7 @@ observer elevation, neither of which this model includes.
 | `eclipse.js` | Besselian-element engine: shadow axis, local circumstances, contacts |
 | `eclipses.js` | Catalog of elements + metadata for all 11 eclipses, 2026–2030 |
 | `index.html` | Globe rendering, HUD and controls |
-| `vendor/` | d3 + topojson-client, vendored so there is no CDN dependency |
+| `vendor/` | d3, topojson-client and the Geist fonts, vendored so there is no CDN dependency |
 | `*110m.json` | Natural Earth land and country outlines |
 
 ## Regenerating the social preview

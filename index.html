@@ -3,12 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Eclipse Tracker — Total Solar Eclipse, 12 August 2026</title>
-<meta name="description" content="Live globe tracker for the total solar eclipse of 12 August 2026. Real-time umbra position, path of totality, and local circumstances computed from NASA Besselian elements.">
+<title>Solar Eclipse Tracker — Live Path of Totality Map, 12 August 2026</title>
+<meta name="description" content="Track the total solar eclipse of 12 August 2026 live on a 3D globe. Watch the Moon's shadow move in real time, see the path of totality across Greenland, Iceland and Spain, and get exact start, maximum and end times for your location.">
+<link rel="canonical" href="https://eclipse-globe.vercel.app/">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="theme-color" content="#05070d">
-<meta property="og:title" content="Eclipse Tracker — 12 August 2026">
-<meta property="og:description" content="Watch the Moon's shadow cross the Earth in real time.">
+<meta name="author" content="Billy Harris">
+
+<meta property="og:title" content="Solar Eclipse Tracker — Live Path of Totality, 12 August 2026">
+<meta property="og:description" content="Watch the Moon's shadow cross the Earth in real time. Live umbra position, coverage rings and exact eclipse times for your location.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://eclipse-globe.vercel.app/">
+<meta property="og:site_name" content="Solar Eclipse Tracker">
+<meta property="og:image" content="https://eclipse-globe.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Globe showing the Moon's shadow crossing the North Atlantic during the 12 August 2026 total solar eclipse.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Solar Eclipse Tracker — 12 August 2026">
+<meta name="twitter:description" content="Watch the Moon's shadow cross the Earth in real time.">
+<meta name="twitter:image" content="https://eclipse-globe.vercel.app/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23ffcc5c'/%3E%3Ccircle cx='11' cy='14' r='12' fill='%2305070d'/%3E%3C/svg%3E">
 <style>
   *, *::before, *::after { box-sizing: border-box; }
@@ -22,19 +36,20 @@
     --hot: #ff7a45;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   }
-  html, body { height: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
   }
-  #stage { position: fixed; inset: 0; }
+  body.sheet-open { overflow: hidden; }
+  #hero { position: relative; height: 100dvh; min-height: 520px; overflow: hidden; }
+  #stage { position: absolute; inset: 0; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   #globe { cursor: grab; }
   #globe.dragging { cursor: grabbing; }
 
   /* ---------- chrome ---------- */
-  .hud { position: fixed; z-index: 5; pointer-events: none; }
+  .hud { position: absolute; z-index: 5; pointer-events: none; }
   .hud > * { pointer-events: auto; }
 
   #top { top: 0; left: 0; right: 0; padding: 18px 20px;
@@ -55,7 +70,7 @@
           backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3); }
 
   /* countdown */
-  #clock { position: fixed; left: 20px; top: 86px; z-index: 5; padding: 14px 18px; min-width: 234px; }
+  #clock { position: absolute; left: 20px; top: 86px; z-index: 5; padding: 14px 18px; min-width: 234px; }
   #clockLabel { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
   #clockValue { font-family: var(--mono); font-size: 34px; font-weight: 600; letter-spacing: -.02em;
                 margin-top: 4px; font-variant-numeric: tabular-nums; line-height: 1.05; }
@@ -63,14 +78,16 @@
   #clockSub { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
 
   /* stats */
-  #stats { position: fixed; left: 20px; top: 214px; z-index: 5; padding: 6px 4px; width: 252px; }
+  #stats { position: absolute; left: 20px; top: 214px; z-index: 5; padding: 6px 4px; width: 252px; }
   .row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 14px; }
   .row + .row { border-top: 1px solid rgba(255,255,255,.05); }
   .row dt { font-size: 12.5px; color: var(--muted); margin: 0; }
   .row dd { margin: 0; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
 
   /* right column */
-  #side { position: fixed; right: 20px; top: 86px; z-index: 5; width: 268px; display: flex; flex-direction: column; gap: 12px; }
+  #side { position: absolute; right: 20px; top: 86px; z-index: 5; width: 268px; display: flex; flex-direction: column; gap: 12px;
+          max-height: calc(100dvh - 200px); overflow-y: auto; scrollbar-width: none; }
+  #side::-webkit-scrollbar { display: none; }
   .cardHead { padding: 12px 14px 9px; font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase;
               color: var(--muted); font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
   .cardBody { padding: 0 14px 12px; font-size: 13px; }
@@ -110,14 +127,47 @@
   .tick { position: absolute; transform: translateX(-50%); white-space: nowrap; font-family: var(--mono); }
   .tick::before { content: ""; position: absolute; left: 50%; top: -5px; width: 1px; height: 4px; background: rgba(255,255,255,.28); }
 
-  #hint { position: fixed; bottom: 128px; left: 50%; transform: translateX(-50%); z-index: 4;
+  #hint { position: absolute; bottom: 128px; left: 50%; transform: translateX(-50%); z-index: 4;
           font-size: 11.5px; color: var(--muted); background: var(--panel); border: 1px solid var(--edge);
           padding: 5px 12px; border-radius: 999px; backdrop-filter: blur(10px); transition: opacity .5s; }
 
   #err { position: fixed; inset: 0; display: none; place-items: center; z-index: 20; background: var(--bg); padding: 24px; text-align: center; }
 
+  /* ---------- article ---------- */
+  #scrollCue { position: absolute; bottom: 96px; right: 20px; z-index: 5; font-size: 12px; font-weight: 600;
+               color: var(--muted); text-decoration: none; padding: 7px 13px; border-radius: 999px;
+               border: 1px solid var(--edge); background: var(--panel); backdrop-filter: blur(10px); }
+  #scrollCue:hover { color: var(--ink); border-color: rgba(255,255,255,.25); }
+
+  #about { max-width: 780px; margin: 0 auto; padding: 64px 22px 80px; }
+  #about h2 { font-size: 25px; letter-spacing: -.015em; margin: 46px 0 12px; scroll-margin-top: 20px; }
+  #about h2:first-child { margin-top: 0; }
+  #about h3 { font-size: 17px; margin: 26px 0 6px; letter-spacing: -.01em; }
+  #about p { color: #c3cddd; margin: 0 0 13px; }
+  #about .lede { font-size: 17.5px; color: var(--ink); line-height: 1.6; }
+  #about .small { font-size: 13px; color: var(--muted); }
+  #about ul { color: #c3cddd; padding-left: 20px; }
+  #about li { margin-bottom: 8px; }
+  #about a { color: var(--gold); text-decoration-color: rgba(255,196,77,.4); text-underline-offset: 3px; }
+  #about code { font-family: var(--mono); font-size: .9em; background: rgba(255,255,255,.07);
+                padding: 1px 5px; border-radius: 4px; }
+  .tableWrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #about table { border-collapse: collapse; width: 100%; margin: 14px 0 10px; font-size: 14px; }
+  #about caption { text-align: left; font-size: 12px; color: var(--muted); padding-bottom: 8px; }
+  #about th, #about td { padding: 8px 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.08);
+                         white-space: nowrap; }
+  #about thead th { font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  #about tbody th { font-weight: 600; color: var(--ink); }
+  #about td { color: #c3cddd; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+  #about tbody tr:hover { background: rgba(255,255,255,.035); }
+  #about footer { margin-top: 54px; padding-top: 20px; border-top: 1px solid var(--edge);
+                  font-size: 13px; color: var(--muted); }
+  #about footer p { color: var(--muted); font-size: 13px; }
+
   #scrim { display: none; }
   .narrow-only { display: none; }
+  /* ?og=1 — clean framing for the social preview render */
+  body.og #bottom, body.og #hint, body.og #scrollCue, body.og #stats { display: none; }
   #sheetClose { display: none; }
 
   @media (min-width: 901px) { #panels, #sheet { display: contents; } }
@@ -130,7 +180,7 @@
     #panels { display: contents; }
 
     /* compact countdown pinned under the header */
-    #clock { position: fixed; left: 12px; right: 12px; top: 66px; width: auto; min-width: 0;
+    #clock { position: absolute; left: 12px; right: 12px; top: 66px; width: auto; min-width: 0;
              padding: 9px 14px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
     #clockLabel { font-size: 10px; }
     #clockValue { font-size: 26px; margin-top: 0; }
@@ -169,14 +219,15 @@
 </head>
 <body>
 
+<div id="hero">
 <div id="stage">
   <canvas id="globe"></canvas>
 </div>
 
 <div class="hud" id="top">
   <div>
-    <p class="title">Total Solar Eclipse</p>
-    <h1 class="subtitle">12 August 2026<span class="wide-only"> · Greenland · Iceland · Spain</span></h1>
+    <p class="title">Live · Total Solar Eclipse</p>
+    <h1 class="subtitle">Solar Eclipse Tracker<span class="wide-only"> · 12 August 2026</span></h1>
   </div>
   <div id="statusBadge"></div>
 </div>
@@ -213,10 +264,12 @@
       <div class="cardBody">
         <div style="display:flex; gap:8px; flex-wrap:wrap">
           <button class="btn on" id="followBtn">Follow shadow</button>
+          <button class="btn on" id="ringsBtn">Coverage %</button>
           <button class="btn" id="resetBtn">Reset</button>
         </div>
         <div id="legend">
           <div class="lg"><span class="sw" style="background:linear-gradient(90deg,#9dc4e2,#0a1020)"></span>Partial shadow (penumbra)</div>
+          <div class="lg"><span class="sw" style="background:none;border:0;border-top:1.5px solid rgba(255,186,86,.9);border-radius:0;height:0"></span>Sun covered — 20/40/60/80/90%</div>
           <div class="lg"><span class="sw" style="background:#05060c;border-color:rgba(255,140,60,.95)"></span>Umbra — totality now</div>
           <div class="lg"><span class="sw" style="background:rgba(255,120,30,.35);border-color:rgba(190,60,15,.9)"></span>Path of totality</div>
           <div class="lg"><span class="sw" style="background:#0a1020"></span>Night side</div>
@@ -248,7 +301,255 @@
 </div>
 
 <div id="hint">Drag to rotate · scroll to zoom</div>
-<div id="err"><div><h2>Couldn't load map data</h2><p class="note" id="errMsg"></p></div></div>
+<a id="scrollCue" href="#about" aria-label="Read eclipse times and details">Eclipse times &amp; details ↓</a>
+</div><!-- /hero -->
+<main id="about">
+  <article>
+    <h2>Total solar eclipse of 12 August 2026</h2>
+    <p class="lede">On <strong>12 August 2026</strong> the Moon's shadow crosses the Arctic, Greenland,
+    western Iceland and northern Spain. Totality lasts up to <strong>2 minutes 18 seconds</strong>,
+    and the path of totality is about <strong>294 km wide</strong>. It is the first total solar eclipse
+    visible from mainland Europe since 1999.</p>
+
+    <p>The tracker above shows where the shadow is <em>right now</em>. The dark ellipse is the
+    <strong>umbra</strong>, where the eclipse is total; the surrounding rings mark how much of the Sun
+    is covered (20%, 40%, 60%, 80%, 90%) at this instant. Every figure is computed in your browser from
+    NASA's Besselian elements, so it is not a pre-recorded animation.</p>
+
+    <h2 id="times">Key times (UTC)</h2>
+    <table>
+      <caption>Global circumstances for the 12 August 2026 total solar eclipse</caption>
+      <tbody>
+        <tr><th scope="row">Partial eclipse begins</th><td>15:33 UTC</td></tr>
+        <tr><th scope="row">Total eclipse begins</th><td>17:00 UTC</td></tr>
+        <tr><th scope="row">Greatest eclipse</th><td>17:46 UTC</td></tr>
+        <tr><th scope="row">Total eclipse ends</th><td>18:32 UTC</td></tr>
+        <tr><th scope="row">Partial eclipse ends</th><td>19:57 UTC</td></tr>
+        <tr><th scope="row">Maximum duration of totality</th><td>2m 18s</td></tr>
+        <tr><th scope="row">Greatest eclipse location</th><td>65.2°N, 25.2°W (off western Iceland)</td></tr>
+      </tbody>
+    </table>
+    <p class="small">Spain is on CEST (UTC+2) and Iceland is on GMT (UTC+0). Local sunset times matter:
+    in eastern Spain the eclipse is still in progress when the Sun sets.</p>
+
+    <h2 id="totality">Cities in the path of totality</h2>
+    <p>These places see a <strong>total</strong> solar eclipse — the Sun is completely covered and it is
+    safe to remove eclipse glasses <em>only</em> during totality itself.</p>
+    <div class="tableWrap">
+    <table>
+      <caption>Totality duration and contact times (UTC)</caption>
+      <thead><tr><th scope="col">City</th><th scope="col">Country</th><th scope="col">Totality</th>
+        <th scope="col">Starts</th><th scope="col">Maximum</th><th scope="col">Ends</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Oviedo</th><td>Spain</td><td>1m 43s</td><td>17:31</td><td>18:27</td><td>19:20</td></tr>
+        <tr><th scope="row">Valladolid</th><td>Spain</td><td>1m 39s</td><td>17:34</td><td>18:30</td><td>19:17</td></tr>
+        <tr><th scope="row">Castelló</th><td>Spain</td><td>1m 39s</td><td>17:37</td><td>18:31</td><td>18:56</td></tr>
+        <tr><th scope="row">Burgos</th><td>Spain</td><td>1m 37s</td><td>17:33</td><td>18:29</td><td>19:15</td></tr>
+        <tr><th scope="row">Gijón</th><td>Spain</td><td>1m 35s</td><td>17:30</td><td>18:27</td><td>19:20</td></tr>
+        <tr><th scope="row">Palma</th><td>Spain</td><td>1m 33s</td><td>17:37</td><td>18:31</td><td>18:44</td></tr>
+        <tr><th scope="row">València</th><td>Spain</td><td>1m 20s</td><td>17:38</td><td>18:32</td><td>18:56</td></tr>
+        <tr><th scope="row">Grundarfjörður</th><td>Iceland</td><td>1m 15s</td><td>16:45</td><td>17:46</td><td>18:45</td></tr>
+        <tr><th scope="row">Zaragoza</th><td>Spain</td><td>1m 03s</td><td>17:34</td><td>18:29</td><td>19:02</td></tr>
+        <tr><th scope="row">Logroño</th><td>Spain</td><td>0m 56s</td><td>17:33</td><td>18:28</td><td>19:10</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="small"><strong>Edge cases:</strong> Madrid, Bilbao and Santander sit within a few kilometres
+    of the southern limit of the path. NASA's published limit puts Madrid just <em>outside</em> totality at
+    99.97% coverage. Within a kilometre or two of the limit the true answer depends on the Moon's limb
+    profile and your elevation, so treat those locations as uncertain and move north if you want totality.</p>
+
+    <h2 id="partial">Partial eclipse times for major cities</h2>
+    <p>Outside the path, the Sun is partly covered. The Sun is <strong>never</strong> safe to look at during
+    a partial eclipse without certified eclipse glasses.</p>
+    <div class="tableWrap">
+    <table>
+      <caption>Maximum coverage and contact times (UTC)</caption>
+      <thead><tr><th scope="col">City</th><th scope="col">Country</th><th scope="col">Sun covered</th>
+        <th scope="col">Starts</th><th scope="col">Maximum</th><th scope="col">Ends</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Barcelona</th><td>Spain</td><td>99.5%</td><td>17:34</td><td>18:29</td><td>18:49</td></tr>
+        <tr><th scope="row">Lisbon</th><td>Portugal</td><td>94.8%</td><td>17:39</td><td>18:36</td><td>19:29</td></tr>
+        <tr><th scope="row">Dublin</th><td>Ireland</td><td>93.4%</td><td>17:12</td><td>18:10</td><td>19:05</td></tr>
+        <tr><th scope="row">Paris</th><td>France</td><td>91.5%</td><td>17:22</td><td>18:17</td><td>19:05</td></tr>
+        <tr><th scope="row">London</th><td>UK</td><td>90.8%</td><td>17:17</td><td>18:13</td><td>19:06</td></tr>
+        <tr><th scope="row">Manchester</th><td>UK</td><td>90.8%</td><td>17:13</td><td>18:10</td><td>19:03</td></tr>
+        <tr><th scope="row">Tórshavn</th><td>Faroe Islands</td><td>90.6%</td><td>16:56</td><td>17:54</td><td>18:50</td></tr>
+        <tr><th scope="row">Edinburgh</th><td>UK</td><td>90.1%</td><td>17:08</td><td>18:05</td><td>18:59</td></tr>
+        <tr><th scope="row">Longyearbyen</th><td>Svalbard</td><td>90.0%</td><td>16:28</td><td>17:24</td><td>18:19</td></tr>
+        <tr><th scope="row">Amsterdam</th><td>Netherlands</td><td>87.6%</td><td>17:15</td><td>18:10</td><td>19:02</td></tr>
+        <tr><th scope="row">Casablanca</th><td>Morocco</td><td>87.2%</td><td>17:48</td><td>18:43</td><td>19:15</td></tr>
+        <tr><th scope="row">Berlin</th><td>Germany</td><td>84.3%</td><td>17:15</td><td>18:08</td><td>18:31</td></tr>
+        <tr><th scope="row">Oslo</th><td>Norway</td><td>82.4%</td><td>17:02</td><td>17:56</td><td>18:49</td></tr>
+        <tr><th scope="row">Stockholm</th><td>Sweden</td><td>80.4%</td><td>17:03</td><td>17:56</td><td>18:38</td></tr>
+        <tr><th scope="row">Rome</th><td>Italy</td><td>64.6%</td><td>17:32</td><td>18:09</td><td><em>sunset</em></td></tr>
+        <tr><th scope="row">Boston</th><td>USA</td><td>16.3%</td><td>17:01</td><td>17:54</td><td>18:46</td></tr>
+        <tr><th scope="row">New York</th><td>USA</td><td>9.7%</td><td>17:07</td><td>17:53</td><td>18:38</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="small">Use the <a href="#top">tracker's “Use my location” button</a> for times at your exact
+    coordinates rather than the nearest listed city.</p>
+
+    <h2 id="safety">How to watch safely</h2>
+    <ul>
+      <li>Use eclipse glasses certified to <strong>ISO 12312-2</strong>, or a solar filter fitted over the
+        front of a telescope, binoculars or camera lens.</li>
+      <li>Sunglasses, smoked glass, exposed film and CDs are <strong>not</strong> safe, no matter how dark.</li>
+      <li>Never look through a telescope or binoculars while wearing eclipse glasses — the concentrated
+        light will burn through the filter.</li>
+      <li>Only during <strong>totality</strong>, when the Sun's disc is completely covered, is it safe to
+        look with the naked eye. Put the filters back on the instant the first sliver reappears.</li>
+      <li>Pinhole projection onto card is a safe, free alternative for the partial phases.</li>
+    </ul>
+
+    <h2 id="faq">Frequently asked questions</h2>
+    <h3>What time is the solar eclipse on 12 August 2026?</h3>
+    <p>The eclipse runs from 15:33 UTC to 19:57 UTC. Totality begins at 17:00 UTC in the Arctic and ends at
+    18:32 UTC over Spain, with greatest eclipse at 17:46 UTC off western Iceland.</p>
+
+    <h3>Where can I see the total solar eclipse of 2026?</h3>
+    <p>The path of totality crosses far eastern Siberia, the Greenland ice cap, western Iceland
+    (including the Snæfellsnes peninsula and the Westfjords), the North Atlantic, and northern Spain from
+    Asturias through Castilla y León and Aragón to Valencia and the Balearic Islands.</p>
+
+    <h3>How long does totality last?</h3>
+    <p>Up to 2 minutes 18 seconds at greatest eclipse, about 45 km off the west coast of Iceland. On land,
+    Iceland gets roughly 1–2 minutes and northern Spain up to about 1 minute 45 seconds.</p>
+
+    <h3>Will I see the eclipse from the UK?</h3>
+    <p>Not totality, but a deep partial eclipse: about 90% of the Sun covered from London, Manchester and
+    Edinburgh, peaking around 18:05–18:15 UTC. Eclipse glasses are required for the entire event.</p>
+
+    <h3>Is Madrid in the path of totality?</h3>
+    <p>Madrid sits right on the southern limit. NASA's published limit places it just outside, with 99.97%
+    coverage. Travelling 40–60 km north — towards Segovia, Ávila or Guadalajara — puts you comfortably
+    inside the path.</p>
+
+    <h3>When is the next total solar eclipse?</h3>
+    <p>2 August 2027, crossing southern Spain, Gibraltar, North Africa, Egypt and Saudi Arabia, with an
+    exceptional 6 minutes 23 seconds of totality near Luxor.</p>
+
+    <h3>How accurate is this tracker?</h3>
+    <p>Positions are computed from NASA/GSFC Besselian elements. Greatest eclipse resolves to within
+    0.001° of the published position, path width to 293 km against a published 294.0 km, and contact times
+    to the second. Locations within about a kilometre of the path limits are inherently uncertain because
+    the model does not include the Moon's limb profile or observer elevation.</p>
+
+    <h2 id="how">How this tracker works</h2>
+    <p>The Moon's shadow is not a circle on the ground. The umbra is a cone whose cross-section is a circle
+    of radius <code>|L2′|</code> on the fundamental plane; where it meets a tilted, curved Earth it becomes an
+    ellipse stretched by <code>1/sin(altitude)</code> along the Sun's azimuth. With the Sun only 7° above the
+    horizon over eastern Spain, the shadow smears to roughly 840 km long. The coverage rings are isolines of
+    obscuration sampled in screen space each frame — a latitude/longitude grid tears at the antimeridian and
+    degenerates at the pole, both of which this eclipse crosses.</p>
+    <p>Source code is on <a href="https://github.com/billyhar/eclipse-globe" rel="noopener">GitHub</a>.
+    Elements from the <a href="https://eclipse.gsfc.nasa.gov/SEbeselm/SEbeselm2001/SE2026Aug12Tbeselm.html" rel="noopener">NASA
+    Five Millennium Catalog of Solar Eclipses</a>.</p>
+  </article>
+
+  <footer>
+    <p>Times are computed, not editorial. Verify anything safety-critical against
+    <a href="https://eclipse.gsfc.nasa.gov/" rel="noopener">NASA</a> or your national astronomical body.</p>
+    <p><a href="#top">↑ Back to the live tracker</a></p>
+  </footer>
+</main>
+
+<div id="err"><div><p style="font-size:19px;font-weight:650">Couldn't load map data</p><p class="note" id="errMsg"></p></div></div>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://eclipse-globe.vercel.app/#website",
+      "url": "https://eclipse-globe.vercel.app/",
+      "name": "Solar Eclipse Tracker",
+      "description": "Live globe tracker for the total solar eclipse of 12 August 2026.",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://eclipse-globe.vercel.app/#app",
+      "name": "Solar Eclipse Tracker — 12 August 2026",
+      "url": "https://eclipse-globe.vercel.app/",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Any modern web browser",
+      "browserRequirements": "Requires JavaScript and HTML5 canvas",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "featureList": [
+        "Real-time position of the Moon's umbra on a 3D globe",
+        "Path of totality for the 12 August 2026 eclipse",
+        "Eclipse obscuration contour rings at 20, 40, 60, 80 and 90 percent",
+        "Local start, maximum and end times for any location",
+        "Timeline scrubbing across the full eclipse"
+      ]
+    },
+    {
+      "@type": "Event",
+      "@id": "https://eclipse-globe.vercel.app/#eclipse",
+      "name": "Total Solar Eclipse of 12 August 2026",
+      "description": "A total solar eclipse crossing the Arctic, Greenland, western Iceland and northern Spain, with a maximum totality of 2 minutes 18 seconds and a path of totality about 294 km wide.",
+      "startDate": "2026-08-12T15:33:00Z",
+      "endDate": "2026-08-12T19:57:00Z",
+      "eventStatus": "https://schema.org/EventScheduled",
+      "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+      "image": "https://eclipse-globe.vercel.app/og.png",
+      "location": {
+        "@type": "Place",
+        "name": "Path of totality: Greenland, Iceland and northern Spain",
+        "geo": { "@type": "GeoCoordinates", "latitude": 65.225, "longitude": -25.228 }
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://eclipse-globe.vercel.app/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What time is the solar eclipse on 12 August 2026?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The eclipse runs from 15:33 UTC to 19:57 UTC. Totality begins at 17:00 UTC in the Arctic and ends at 18:32 UTC over Spain, with greatest eclipse at 17:46 UTC off western Iceland." }
+        },
+        {
+          "@type": "Question",
+          "name": "Where can I see the total solar eclipse of 2026?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The path of totality crosses far eastern Siberia, the Greenland ice cap, western Iceland including the Snaefellsnes peninsula and the Westfjords, the North Atlantic, and northern Spain from Asturias through Castilla y Leon and Aragon to Valencia and the Balearic Islands." }
+        },
+        {
+          "@type": "Question",
+          "name": "How long does totality last during the 2026 eclipse?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Up to 2 minutes 18 seconds at greatest eclipse, about 45 km off the west coast of Iceland. On land, Iceland gets roughly 1 to 2 minutes and northern Spain up to about 1 minute 45 seconds." }
+        },
+        {
+          "@type": "Question",
+          "name": "Will the 2026 solar eclipse be visible from the UK?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not totality, but a deep partial eclipse of about 90 percent from London, Manchester and Edinburgh, peaking around 18:05 to 18:15 UTC. Certified eclipse glasses are required for the entire event." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Madrid in the path of totality?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Madrid sits right on the southern limit. NASA's published limit places it just outside totality, with 99.97 percent coverage. Travelling 40 to 60 km north towards Segovia, Avila or Guadalajara puts you comfortably inside the path." }
+        },
+        {
+          "@type": "Question",
+          "name": "When is the next total solar eclipse after August 2026?",
+          "acceptedAnswer": { "@type": "Answer", "text": "2 August 2027, crossing southern Spain, Gibraltar, North Africa, Egypt and Saudi Arabia, with an exceptional 6 minutes 23 seconds of totality near Luxor." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I watch a solar eclipse safely?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Use eclipse glasses certified to ISO 12312-2, or a solar filter fitted over the front of a telescope, binoculars or camera lens. Sunglasses and smoked glass are not safe. Only during totality, when the Sun's disc is fully covered, is it safe to look with the naked eye." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+
+<!-- Vercel Web Analytics. This is a static site with no bundler, so it uses
+     the script Vercel serves per-deployment rather than the npm package. -->
+<script defer src="/_vercel/insights/script.js"></script>
 
 <script src="./vendor/d3.min.js"></script>
 <script src="./vendor/topojson-client.min.js"></script>
@@ -261,6 +562,7 @@ import {
 
 const $ = s => document.querySelector(s);
 const canvas = $('#globe'), ctx = canvas.getContext('2d', { alpha: false });
+if (new URLSearchParams(location.search).has('og')) document.body.classList.add('og');
 
 /* ---------------------------------------------------------------- data */
 const CITIES = [
@@ -350,7 +652,8 @@ const state = {
   follow: true,
   scale: 1,
   rot: [25, -35],
-  dragging: false
+  dragging: false,
+  rings: true
 };
 if (state.time < P1 - 36e5 || state.time > P4 + 36e5) { state.live = false; state.time = GREATEST; }
 
@@ -365,7 +668,8 @@ let shadeKey = '';
 
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
-  W = window.innerWidth; H = window.innerHeight;
+  const hero = document.getElementById('hero');
+  W = hero.clientWidth; H = hero.clientHeight;
   canvas.width = W * dpr; canvas.height = H * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const wide = W > 900;
@@ -415,7 +719,7 @@ function buildShade(step) {
       // Eclipse darkening. The exponent is below 1 so the faint outer
       // penumbra still reads on screen — real daylight barely dims there.
       if (px.obsc > 0) {
-        const e = Math.pow(px.obsc, 1.15) * 0.9;
+        const e = px.obsc * 0.9;
         if (e > a) { a = e; r = 7; g = 8; b = 18; }
       }
       data[o] = r; data[o + 1] = g; data[o + 2] = b;
@@ -423,6 +727,89 @@ function buildShade(step) {
     }
   }
   sctx.putImageData(img, 0, 0);
+}
+
+/* ------------------------------------------------- obscuration rings */
+/*
+ * Isolines of eclipse obscuration. These are computed on the SCREEN grid
+ * rather than a lat/lon grid: a lat/lon grid degenerates at the poles and
+ * tears at the antimeridian, both of which this eclipse crosses. Sampling
+ * in screen space sidesteps both, and the rings close naturally against
+ * the limb and the terminator (where obscuration is defined as 0).
+ */
+const CSTEP = 6;
+const RING_LEVELS = [0.2, 0.4, 0.6, 0.8, 0.9];
+const RING_STYLE = [
+  { s: 'rgba(18,45,78,.5)',    t: '#12314f', halo: 'rgba(255,255,255,.85)', w: 1 },
+  { s: 'rgba(22,52,88,.62)',   t: '#12314f', halo: 'rgba(255,255,255,.85)', w: 1.1 },
+  { s: 'rgba(196,220,245,.55)',t: '#dceaf7', halo: 'rgba(0,0,0,.7)',        w: 1.2 },
+  { s: 'rgba(255,222,168,.7)', t: '#ffdea8', halo: 'rgba(0,0,0,.75)',       w: 1.3 },
+  { s: 'rgba(255,186,86,.85)', t: '#ffba56', halo: 'rgba(0,0,0,.8)',        w: 1.5 }
+];
+let ringCache = null, ringKey = '';
+
+function buildRings() {
+  const sw = Math.ceil(W / CSTEP), sh = Math.ceil(H / CSTEP);
+  const vals = new Float64Array(sw * sh);
+  const c = fieldContext(state.time);
+  const [cx, cy] = projection.translate();
+  const D2R = Math.PI / 180;
+
+  for (let j = 0; j < sh; j++) {
+    const y = j * CSTEP + CSTEP / 2;
+    for (let i = 0; i < sw; i++) {
+      const x = i * CSTEP + CSTEP / 2;
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy > R * R) continue;      // off-globe stays 0
+      const ll = projection.invert([x, y]);
+      if (!ll) continue;
+      fieldAt(c, ll[1] * D2R, ll[0] * D2R, px);
+      vals[j * sw + i] = px.obsc;
+    }
+  }
+  return { sw, sh, sets: d3.contours().size([sw, sh]).thresholds(RING_LEVELS)(vals) };
+}
+
+function drawRings() {
+  const key = `${Math.round(state.time / 8000)}|${projection.rotate().map(v => v.toFixed(1))}|${W}x${H}|${R.toFixed(0)}`;
+  if (key !== ringKey) { ringCache = buildRings(); ringKey = key; }
+  const { sw, sh, sets } = ringCache;
+  const G = g => g * CSTEP + CSTEP / 2;
+  const labels = [];
+
+  ctx.save();
+  ctx.beginPath(); path({ type: 'Sphere' }); ctx.clip();
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+
+  sets.forEach((set, idx) => {
+    const st = RING_STYLE[idx];
+    let top = null;
+    ctx.beginPath();
+    for (const poly of set.coordinates) for (const ring of poly) {
+      let started = false;
+      for (const [gx, gy] of ring) {
+        // drop segments that merely run along the edge of the sample grid
+        if (gx <= 0.01 || gy <= 0.01 || gx >= sw - 0.01 || gy >= sh - 0.01) { started = false; continue; }
+        const X = G(gx), Y = G(gy);
+        if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
+        if (!top || Y < top[1]) top = [X, Y];
+      }
+    }
+    ctx.strokeStyle = st.s; ctx.lineWidth = st.w; ctx.stroke();
+    if (top) labels.push({ xy: top, text: `${Math.round(set.value * 100)}%`, st });
+  });
+
+  // labels last, so rings never draw over them
+  ctx.font = '700 10.5px ui-monospace, SFMono-Regular, Menlo, monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  for (const { xy, text, st } of labels) {
+    ctx.lineWidth = 3; ctx.strokeStyle = st.halo;
+    ctx.strokeText(text, xy[0], xy[1]);
+    ctx.fillStyle = st.t; ctx.fillText(text, xy[0], xy[1]);
+  }
+  ctx.restore();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
 }
 
 /* ---------------------------------------------------------- drawing */
@@ -453,14 +840,23 @@ function draw() {
   ctx.strokeStyle = 'rgba(90,110,90,.38)'; ctx.lineWidth = .6; ctx.stroke();
 
   // night + eclipse shading
-  const step = state.dragging || state.playing ? 5 : 3;
+  // The field is sampled coarsely and scaled up, so blur by roughly one
+  // sample cell — bilinear alone leaves visible stair-steps on the
+  // terminator, which is a hard diagonal across the samples.
+  const step = state.dragging || state.playing ? 4 : 2;
   const key = `${Math.round(state.time / 4000)}|${projection.rotate().map(v => v.toFixed(1))}|${W}x${H}|${R.toFixed(0)}|${step}`;
   if (key !== shadeKey) { buildShade(step); shadeKey = key; }
   ctx.save();
   ctx.beginPath(); path({ type: 'Sphere' }); ctx.clip();
   ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  // exact 1 sample -> step px mapping, so the field doesn't shift under the map
+  ctx.filter = `blur(${(step * 0.7).toFixed(2)}px)`;
   ctx.drawImage(shade, 0, 0, W, H);
+  ctx.filter = 'none';
   ctx.restore();
+
+  if (state.rings) drawRings();
 
   // path of totality
   ctx.save();
@@ -670,6 +1066,11 @@ addEventListener('keydown', e => { if (e.key === 'Escape') sheet(false); });
 $('#followBtn').addEventListener('click', e => {
   state.follow = !state.follow;
   e.currentTarget.classList.toggle('on', state.follow);
+});
+$('#ringsBtn').addEventListener('click', e => {
+  state.rings = !state.rings;
+  e.currentTarget.classList.toggle('on', state.rings);
+  draw();
 });
 $('#resetBtn').addEventListener('click', () => {
   state.scale = 1; state.follow = true;

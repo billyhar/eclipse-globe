@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Solar Eclipse Tracker — Live Path of Totality Map, 12 August 2026</title>
-<meta name="description" content="Track the total solar eclipse of 12 August 2026 live on a 3D globe. Watch the Moon's shadow move in real time, see the path of totality across Greenland, Iceland and Spain, and get exact start, maximum and end times for your location.">
+<title>Solar Eclipse Tracker — Live Path of Totality Map &amp; Countdown, 2026–2030</title>
+<meta name="description" content="Live solar eclipse tracker with a countdown to the next eclipse. Watch the Moon's shadow cross a 3D globe in real time, see the path of totality, and get exact start, maximum and end times for your location — every solar eclipse from 2026 to 2030.">
 <link rel="canonical" href="https://eclipse-globe.vercel.app/">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <meta name="theme-color" content="#05070d">
 <meta name="author" content="Billy Harris">
 
-<meta property="og:title" content="Solar Eclipse Tracker — Live Path of Totality, 12 August 2026">
-<meta property="og:description" content="Watch the Moon's shadow cross the Earth in real time. Live umbra position, coverage rings and exact eclipse times for your location.">
+<meta property="og:title" content="Solar Eclipse Tracker — Live Path of Totality &amp; Countdown">
+<meta property="og:description" content="Watch the Moon's shadow cross the Earth in real time. Countdown to the next eclipse, coverage rings and exact times for your location — every solar eclipse 2026–2030.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://eclipse-globe.vercel.app/">
 <meta property="og:site_name" content="Solar Eclipse Tracker">
@@ -20,7 +20,7 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Globe showing the Moon's shadow crossing the North Atlantic during the 12 August 2026 total solar eclipse.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Solar Eclipse Tracker — 12 August 2026">
+<meta name="twitter:title" content="Solar Eclipse Tracker — 2026 to 2030">
 <meta name="twitter:description" content="Watch the Moon's shadow cross the Earth in real time.">
 <meta name="twitter:image" content="https://eclipse-globe.vercel.app/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23ffcc5c'/%3E%3Ccircle cx='11' cy='14' r='12' fill='%2305070d'/%3E%3C/svg%3E">
@@ -64,6 +64,18 @@
   .badge.live { color: #ff6b6b; border-color: rgba(255,107,107,.35); background: rgba(255,107,107,.1); }
   .badge.live .dot { width: 7px; height: 7px; border-radius: 50%; background: #ff6b6b; animation: pulse 1.6s ease-in-out infinite; }
   .badge.done { color: var(--muted); }
+  #topRight { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #eclipseSel {
+    font: 600 12.5px/1 -apple-system, system-ui, sans-serif; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 9px;
+    padding: 8px 30px 8px 12px; cursor: pointer; backdrop-filter: blur(12px);
+    -webkit-appearance: none; appearance: none; max-width: 260px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238695ad' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 11px center;
+  }
+  #eclipseSel:hover { border-color: rgba(255,255,255,.24); }
+  #eclipseSel option { background: #0e1421; color: var(--ink); }
   @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.8); } }
 
   .card { background: var(--panel); border: 1px solid var(--edge); border-radius: 14px;
@@ -156,6 +168,7 @@
   #about caption { text-align: left; font-size: 12px; color: var(--muted); padding-bottom: 8px; }
   #about th, #about td { padding: 8px 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.08);
                          white-space: nowrap; }
+  #about td.wrap { white-space: normal; font-family: inherit; font-size: 13px; min-width: 190px; }
   #about thead th { font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
   #about tbody th { font-weight: 600; color: var(--ink); }
   #about td { color: #c3cddd; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; }
@@ -207,6 +220,12 @@
              opacity: 0; pointer-events: none; transition: opacity .3s; }
     body.sheet-open #scrim { opacity: 1; pointer-events: auto; }
 
+    /* the picker is the primary control here; status is already implied by
+       the countdown card, so the badge gives up its space */
+    #statusBadge, #scrollCue { display: none; }
+    #top { gap: 8px; align-items: center; }
+    #eclipseSel { max-width: 168px; font-size: 11.5px; padding: 7px 24px 7px 9px;
+                  background-position: right 8px center; }
     #bottom { bottom: max(10px, env(safe-area-inset-bottom)); padding: 10px 12px 11px; }
     .tlTop { gap: 7px; }
     .btn { padding: 7px 10px; font-size: 12px; }
@@ -226,10 +245,14 @@
 
 <div class="hud" id="top">
   <div>
-    <p class="title">Live · Total Solar Eclipse</p>
-    <h1 class="subtitle">Solar Eclipse Tracker<span class="wide-only"> · 12 August 2026</span></h1>
+    <p class="title">Live<span class="wide-only"> · Where the Moon's shadow falls</span></p>
+    <h1 class="subtitle">Solar Eclipse Tracker<span class="wide-only"> · 2026–2030</span></h1>
   </div>
-  <div id="statusBadge"></div>
+  <div id="topRight">
+    <div id="statusBadge"></div>
+    <label class="srOnly" for="eclipseSel">Choose an eclipse</label>
+    <select id="eclipseSel"></select>
+  </div>
 </div>
 
 <div id="panels">
@@ -243,11 +266,11 @@
   <button class="btn" id="sheetClose" aria-label="Close">✕ Close</button>
 
   <dl class="card" id="stats">
-    <div class="row"><dt>Shadow centre</dt><dd id="sPos">—</dd></div>
+    <div class="row"><dt id="sPosLbl">Shadow centre</dt><dd id="sPos">—</dd></div>
     <div class="row"><dt>Ground speed</dt><dd id="sSpeed">—</dd></div>
     <div class="row"><dt>Path width</dt><dd id="sWidth">—</dd></div>
     <div class="row"><dt>Sun altitude</dt><dd id="sAlt">—</dd></div>
-    <div class="row"><dt>Totality</dt><dd id="sDur">—</dd></div>
+    <div class="row"><dt id="sDurLbl">Totality</dt><dd id="sDur">—</dd></div>
     <div class="row"><dt>Nearest city</dt><dd id="sNear">—</dd></div>
   </dl>
 
@@ -305,18 +328,52 @@
 </div><!-- /hero -->
 <main id="about">
   <article>
-    <h2>Total solar eclipse of 12 August 2026</h2>
-    <p class="lede">On <strong>12 August 2026</strong> the Moon's shadow crosses the Arctic, Greenland,
-    western Iceland and northern Spain. Totality lasts up to <strong>2 minutes 18 seconds</strong>,
-    and the path of totality is about <strong>294 km wide</strong>. It is the first total solar eclipse
-    visible from mainland Europe since 1999.</p>
+    <h2>Solar eclipse tracker, 2026–2030</h2>
+    <p class="lede">A live globe showing exactly where the Moon's shadow falls on the Earth, for every
+    solar eclipse between <strong>2026 and 2030</strong> — eleven in all: four total, three annular and
+    four partial. The tracker counts down to the next one and lets you scrub through any of them.</p>
 
-    <p>The tracker above shows where the shadow is <em>right now</em>. The dark ellipse is the
-    <strong>umbra</strong>, where the eclipse is total; the surrounding rings mark how much of the Sun
-    is covered (20%, 40%, 60%, 80%, 90%) at this instant. Every figure is computed in your browser from
-    NASA's Besselian elements, so it is not a pre-recorded animation.</p>
+    <p>The dark ellipse is the <strong>umbra</strong>, where the eclipse is total; the rings around it
+    mark how much of the Sun is covered — 20%, 40%, 60%, 80% and 90% — at that instant. Every number
+    here is computed in your browser from NASA's Besselian elements, so nothing is a pre-recorded
+    animation, and the same engine produces both the globe and the tables below.</p>
 
-    <h2 id="times">Key times (UTC)</h2>
+    <h2 id="all">Every solar eclipse from 2026 to 2030</h2>
+    <div class="tableWrap">
+    <table>
+      <caption>All solar eclipses 2026–2030. Duration and width are at greatest eclipse.</caption>
+      <thead><tr><th scope="col">Date</th><th scope="col">Type</th><th scope="col">Max duration</th>
+        <th scope="col">Path width</th><th scope="col">UTC window</th><th scope="col">Where visible</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">12 Aug 2026</th><td>Total</td><td>2m 18s</td><td>294 km</td><td>15:33–19:57</td><td class="wrap">Greenland · Iceland · Spain</td></tr>
+        <tr><th scope="row">6 Feb 2027</th><td>Annular</td><td>7m 51s</td><td>282 km</td><td>12:57–19:01</td><td class="wrap">Chile · Argentina · South Atlantic</td></tr>
+        <tr><th scope="row">2 Aug 2027</th><td>Total</td><td>6m 23s</td><td>258 km</td><td>07:30–12:43</td><td class="wrap">Spain · North Africa · Egypt · Saudi Arabia</td></tr>
+        <tr><th scope="row">26 Jan 2028</th><td>Annular</td><td>10m 27s</td><td>323 km</td><td>12:06–18:08</td><td class="wrap">Ecuador · Peru · Brazil · Iberia at sunset</td></tr>
+        <tr><th scope="row">22 Jul 2028</th><td>Total</td><td>5m 10s</td><td>230 km</td><td>00:27–05:23</td><td class="wrap">Australia · New Zealand</td></tr>
+        <tr><th scope="row">14 Jan 2029</th><td>Partial</td><td>—</td><td>—</td><td>15:01–19:23</td><td class="wrap">North America</td></tr>
+        <tr><th scope="row">12 Jun 2029</th><td>Partial</td><td>—</td><td>—</td><td>02:26–05:43</td><td class="wrap">Arctic · Scandinavia · Alaska</td></tr>
+        <tr><th scope="row">11 Jul 2029</th><td>Partial</td><td>—</td><td>—</td><td>14:27–16:44</td><td class="wrap">Southern South America</td></tr>
+        <tr><th scope="row">5 Dec 2029</th><td>Partial</td><td>—</td><td>—</td><td>13:06–16:59</td><td class="wrap">Southern South America · Antarctica</td></tr>
+        <tr><th scope="row">1 Jun 2030</th><td>Annular</td><td>5m 21s</td><td>250 km</td><td>03:34–09:21</td><td class="wrap">Algeria · Greece · Turkey · Russia · Japan</td></tr>
+        <tr><th scope="row">25 Nov 2030</th><td>Total</td><td>3m 44s</td><td>169 km</td><td>04:16–09:23</td><td class="wrap">Botswana · South Africa · Australia</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="small">A <strong>partial</strong> eclipse means the Moon's shadow cone misses the Earth
+    entirely — nowhere on the planet sees totality. An <strong>annular</strong> eclipse happens when the
+    Moon is too far away to cover the Sun completely, leaving a bright ring; it is
+    <em>never</em> safe to look at without a filter, even at maximum.</p>
+
+    <h2 id="next">Next up: the total eclipse of 2 August 2027</h2>
+    <p>The standout of the decade. Totality lasts <strong>6 minutes 23 seconds</strong> near Luxor —
+    the longest on land this century so far — because the eclipse happens close to solar apogee and
+    near the equator, where the shadow sweeps most slowly. The path crosses southern Spain and
+    Gibraltar, then Morocco, Algeria, Tunisia, Libya, Egypt, Sudan, Saudi Arabia, Yemen and Somalia,
+    much of it under famously reliable August skies.</p>
+
+    <h2 id="times">The 12 August 2026 eclipse in detail</h2>
+    <p class="small">The most recent eclipse in the catalog, kept here for reference. Select any other
+    eclipse from the menu at the top of the tracker.</p>
     <table>
       <caption>Global circumstances for the 12 August 2026 total solar eclipse</caption>
       <tbody>
@@ -404,6 +461,26 @@
     </ul>
 
     <h2 id="faq">Frequently asked questions</h2>
+    <h3>When is the next solar eclipse?</h3>
+    <p>The next is the annular eclipse of <strong>6 February 2027</strong>, crossing Chile and Argentina
+    with up to 7 minutes 51 seconds of annularity. The next <em>total</em> eclipse is
+    <strong>2 August 2027</strong> across North Africa and the Middle East. The countdown at the top of
+    this page tracks whichever comes next, live.</p>
+
+    <h3>How many solar eclipses are there between 2026 and 2030?</h3>
+    <p>Eleven: four total (Aug 2026, Aug 2027, Jul 2028, Nov 2030), three annular (Feb 2027, Jan 2028,
+    Jun 2030) and four partial (Jan, Jun, Jul and Dec 2029).</p>
+
+    <h3>Which upcoming eclipse has the longest totality?</h3>
+    <p>2 August 2027, at 6 minutes 23 seconds near Luxor in Egypt — the longest totality visible from
+    land so far this century. The longest annular is 26 January 2028 at 10 minutes 27 seconds.</p>
+
+    <h3>What is the difference between a total, annular and partial eclipse?</h3>
+    <p>In a <strong>total</strong> eclipse the Moon covers the Sun completely and the umbra reaches the
+    ground. In an <strong>annular</strong> eclipse the Moon is near apogee and appears too small, leaving
+    a bright ring — the antumbra reaches the ground instead. In a <strong>partial</strong> eclipse the
+    shadow cone misses the Earth altogether, so nowhere sees totality.</p>
+
     <h3>What time is the solar eclipse on 12 August 2026?</h3>
     <p>The eclipse runs from 15:33 UTC to 19:57 UTC. Totality begins at 17:00 UTC in the Arctic and ends at
     18:32 UTC over Spain, with greatest eclipse at 17:46 UTC off western Iceland.</p>
@@ -487,25 +564,290 @@
       ]
     },
     {
-      "@type": "Event",
-      "@id": "https://eclipse-globe.vercel.app/#eclipse",
-      "name": "Total Solar Eclipse of 12 August 2026",
-      "description": "A total solar eclipse crossing the Arctic, Greenland, western Iceland and northern Spain, with a maximum totality of 2 minutes 18 seconds and a path of totality about 294 km wide.",
-      "startDate": "2026-08-12T15:33:00Z",
-      "endDate": "2026-08-12T19:57:00Z",
-      "eventStatus": "https://schema.org/EventScheduled",
-      "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-      "image": "https://eclipse-globe.vercel.app/og.png",
-      "location": {
-        "@type": "Place",
-        "name": "Path of totality: Greenland, Iceland and northern Spain",
-        "geo": { "@type": "GeoCoordinates", "latitude": 65.225, "longitude": -25.228 }
-      }
+      "@type": "ItemList",
+      "@id": "https://eclipse-globe.vercel.app/#eclipses",
+      "name": "Solar eclipses 2026–2030",
+      "numberOfItems": 11,
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "item": {
+            "@type": "Event",
+            "name": "Total Solar Eclipse of 12 August 2026",
+            "description": "The first total solar eclipse visible from mainland Europe since 1999, crossing the Arctic, Greenland, western Iceland and northern Spain at sunset.",
+            "startDate": "2026-08-12T15:33:53Z",
+            "endDate": "2026-08-12T19:57:58Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2026-08-12",
+            "location": {
+              "@type": "Place",
+              "name": "Greenland · Iceland · Spain",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 65.224,
+                "longitude": -25.227
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "item": {
+            "@type": "Event",
+            "name": "Annular Solar Eclipse of 6 February 2027",
+            "description": "A long \"ring of fire\" annular eclipse crossing southern Chile and Argentina, with up to 7 minutes 51 seconds of annularity.",
+            "startDate": "2027-02-06T12:57:28Z",
+            "endDate": "2027-02-06T19:01:38Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2027-02-06",
+            "location": {
+              "@type": "Place",
+              "name": "Chile · Argentina · South Atlantic",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": -31.303,
+                "longitude": -48.469
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "item": {
+            "@type": "Event",
+            "name": "Total Solar Eclipse of 2 August 2027",
+            "description": "The longest totality on land this century so far — 6 minutes 23 seconds near Luxor. The path crosses southern Spain, Gibraltar, Morocco, Algeria, Tunisia, Libya, Egypt, Sudan, Saudi Arabia, Yemen and Somalia.",
+            "startDate": "2027-08-02T07:30:05Z",
+            "endDate": "2027-08-02T12:43:10Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2027-08-02",
+            "location": {
+              "@type": "Place",
+              "name": "Spain · North Africa · Egypt · Saudi Arabia",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 25.505,
+                "longitude": 33.182
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "item": {
+            "@type": "Event",
+            "name": "Annular Solar Eclipse of 26 January 2028",
+            "description": "A 10 minute 27 second annular eclipse crossing the Galápagos, Ecuador, Peru, Brazil and Suriname, ending over Portugal and Spain at sunset.",
+            "startDate": "2028-01-26T12:06:40Z",
+            "endDate": "2028-01-26T18:08:55Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2028-01-26",
+            "location": {
+              "@type": "Place",
+              "name": "Ecuador · Peru · Brazil · Iberia at sunset",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 2.959,
+                "longitude": -51.562
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 5,
+          "item": {
+            "@type": "Event",
+            "name": "Total Solar Eclipse of 22 July 2028",
+            "description": "Totality crosses the Kimberley, the Northern Territory, Queensland and New South Wales — passing directly over Sydney — before clipping New Zealand.",
+            "startDate": "2028-07-22T00:27:31Z",
+            "endDate": "2028-07-22T05:23:18Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2028-07-22",
+            "location": {
+              "@type": "Place",
+              "name": "Australia · New Zealand",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": -15.574,
+                "longitude": 126.707
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 6,
+          "item": {
+            "@type": "Event",
+            "name": "Partial Solar Eclipse of 14 January 2029",
+            "description": "A deep partial eclipse for much of North America — the Moon's shadow cone passes north of the Earth, so no totality occurs anywhere.",
+            "startDate": "2029-01-14T15:01:50Z",
+            "endDate": "2029-01-14T19:23:24Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2029-01-14",
+            "location": {
+              "@type": "Place",
+              "name": "North America",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 63.754,
+                "longitude": -114.108
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 7,
+          "item": {
+            "@type": "Event",
+            "name": "Partial Solar Eclipse of 12 June 2029",
+            "description": "A shallow partial eclipse over the high Arctic, Greenland, Iceland, Scandinavia and Alaska.",
+            "startDate": "2029-06-12T02:26:02Z",
+            "endDate": "2029-06-12T05:43:53Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2029-06-12",
+            "location": {
+              "@type": "Place",
+              "name": "Arctic · Scandinavia · Alaska",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 66.765,
+                "longitude": -66.154
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 8,
+          "item": {
+            "@type": "Event",
+            "name": "Partial Solar Eclipse of 11 July 2029",
+            "description": "A slight partial eclipse low over southern Chile and Argentina.",
+            "startDate": "2029-07-11T14:27:12Z",
+            "endDate": "2029-07-11T16:44:54Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2029-07-11",
+            "location": {
+              "@type": "Place",
+              "name": "Southern South America",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": -64.302,
+                "longitude": -85.51
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 9,
+          "item": {
+            "@type": "Event",
+            "name": "Partial Solar Eclipse of 5 December 2029",
+            "description": "A deep partial eclipse over southern Argentina, Chile and the Antarctic Peninsula.",
+            "startDate": "2029-12-05T13:06:28Z",
+            "endDate": "2029-12-05T16:59:03Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2029-12-05",
+            "location": {
+              "@type": "Place",
+              "name": "Southern South America · Antarctica",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": -67.514,
+                "longitude": 135.618
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 10,
+          "item": {
+            "@type": "Event",
+            "name": "Annular Solar Eclipse of 1 June 2030",
+            "description": "A ring of fire crossing North Africa, Greece, Turkey, Ukraine, Russia and northern Japan, with 5 minutes 21 seconds of annularity.",
+            "startDate": "2030-06-01T03:34:33Z",
+            "endDate": "2030-06-01T09:21:15Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2030-06-01",
+            "location": {
+              "@type": "Place",
+              "name": "Algeria · Greece · Turkey · Russia · Japan",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": 56.525,
+                "longitude": 80.075
+              }
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 11,
+          "item": {
+            "@type": "Event",
+            "name": "Total Solar Eclipse of 25 November 2030",
+            "description": "Totality crosses Botswana, South Africa and Lesotho at sunrise, then the southern Indian Ocean, ending over southern Australia at sunset.",
+            "startDate": "2030-11-25T04:16:37Z",
+            "endDate": "2030-11-25T09:23:59Z",
+            "eventStatus": "https://schema.org/EventScheduled",
+            "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+            "url": "https://eclipse-globe.vercel.app/?e=2030-11-25",
+            "location": {
+              "@type": "Place",
+              "name": "Botswana · South Africa · Australia",
+              "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": -43.614,
+                "longitude": 71.241
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "@type": "FAQPage",
       "@id": "https://eclipse-globe.vercel.app/#faq",
       "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "When is the next solar eclipse?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The next solar eclipse is the annular eclipse of 6 February 2027, crossing Chile and Argentina with up to 7 minutes 51 seconds of annularity. The next total solar eclipse is 2 August 2027 across southern Spain, North Africa, Egypt and Saudi Arabia." }
+        },
+        {
+          "@type": "Question",
+          "name": "How many solar eclipses are there between 2026 and 2030?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Eleven: four total (12 August 2026, 2 August 2027, 22 July 2028 and 25 November 2030), three annular (6 February 2027, 26 January 2028 and 1 June 2030) and four partial (14 January, 12 June, 11 July and 5 December 2029)." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which upcoming solar eclipse has the longest totality?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The total eclipse of 2 August 2027, at 6 minutes 23 seconds near Luxor in Egypt — the longest totality visible from land so far this century. The longest annular eclipse is 26 January 2028 at 10 minutes 27 seconds." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between a total, annular and partial solar eclipse?",
+          "acceptedAnswer": { "@type": "Answer", "text": "In a total eclipse the Moon covers the Sun completely and the umbra reaches the ground. In an annular eclipse the Moon is near apogee and appears too small to cover the Sun, leaving a bright ring, and the antumbra reaches the ground instead. In a partial eclipse the shadow cone misses the Earth altogether, so nowhere on the planet sees totality." }
+        },
         {
           "@type": "Question",
           "name": "What time is the solar eclipse on 12 August 2026?",
@@ -555,30 +897,65 @@
 <script src="./vendor/topojson-client.min.js"></script>
 <script type="module">
 import {
-  ELEMENTS, shadowAxisPoint, localCircumstances, localContacts,
-  centralLine, centralPhaseBounds, fieldContext, fieldAt, umbraRing, subSolarPoint,
-  elementsAt, bearing
+  shadowAxisPoint, localCircumstances, localContacts,
+  centralLine, centralPhaseBounds, outerContacts,
+  fieldContext, fieldAt, umbraRing, bearing
 } from './eclipse.js';
+import { ECLIPSES, byId, pathWord, currentEclipse } from './eclipses.js';
 
 const $ = s => document.querySelector(s);
 const canvas = $('#globe'), ctx = canvas.getContext('2d', { alpha: false });
 if (new URLSearchParams(location.search).has('og')) document.body.classList.add('og');
 
 /* ---------------------------------------------------------------- data */
+// [name, lat, lon, rank] — rank 0 is a global anchor city, rank 1 sits on or
+// near one of the catalog's eclipse paths. The catalog spans every continent,
+// so a Europe-only list would leave "nearest city" meaningless for most of it.
 const CITIES = [
-  ['Reykjavík', 64.146, -21.94], ['Nuuk', 64.18, -51.72], ['Ittoqqortoormiit', 70.48, -21.97],
-  ['Tórshavn', 62.01, -6.77], ['Bilbao', 43.263, -2.935], ['Oviedo', 43.36, -5.845],
-  ['Burgos', 42.34, -3.70], ['Zaragoza', 41.649, -0.889], ['València', 39.47, -0.376],
-  ['Palma', 39.57, 2.65], ['Madrid', 40.417, -3.703], ['Barcelona', 41.39, 2.17],
-  ['Lisbon', 38.72, -9.14], ['London', 51.51, -0.13], ['Paris', 48.86, 2.35],
-  ['Dublin', 53.35, -6.26], ['Reykjanes', 63.82, -22.70], ['Longyearbyen', 78.22, 15.63],
-  ['Tromsø', 69.65, 18.96], ['Moscow', 55.76, 37.62], ['New York', 40.71, -74.01],
-  ['Rabat', 34.02, -6.84], ['Rome', 41.90, 12.50], ['Berlin', 52.52, 13.40],
-  ['Nouakchott', 18.08, -15.98], ['Reykholt', 64.66, -21.29]
+  // global anchors
+  ['London', 51.51, -0.13, 0], ['Paris', 48.86, 2.35, 0], ['Madrid', 40.42, -3.70, 0],
+  ['Rome', 41.90, 12.50, 0], ['Berlin', 52.52, 13.40, 0], ['Moscow', 55.76, 37.62, 0],
+  ['Istanbul', 41.01, 28.98, 0], ['Cairo', 30.04, 31.24, 0], ['Lagos', 6.52, 3.38, 0],
+  ['Nairobi', -1.29, 36.82, 0], ['Johannesburg', -26.20, 28.05, 0], ['Dubai', 25.20, 55.27, 0],
+  ['Delhi', 28.61, 77.21, 0], ['Mumbai', 19.08, 72.88, 0], ['Beijing', 39.90, 116.41, 0],
+  ['Tokyo', 35.68, 139.69, 0], ['Shanghai', 31.23, 121.47, 0], ['Singapore', 1.35, 103.82, 0],
+  ['Jakarta', -6.21, 106.85, 0], ['Sydney', -33.87, 151.21, 0], ['Perth', -31.95, 115.86, 0],
+  ['Auckland', -36.85, 174.76, 0], ['Anchorage', 61.22, -149.90, 0], ['Vancouver', 49.28, -123.12, 0],
+  ['Los Angeles', 34.05, -118.24, 0], ['Chicago', 41.88, -87.63, 0], ['New York', 40.71, -74.01, 0],
+  ['Mexico City', 19.43, -99.13, 0], ['Bogotá', 4.71, -74.07, 0], ['Lima', -12.05, -77.04, 0],
+  ['Santiago', -33.45, -70.67, 0], ['Buenos Aires', -34.60, -58.38, 0], ['São Paulo', -23.55, -46.63, 0],
+  ['Reykjavík', 64.15, -21.94, 0], ['Nuuk', 64.18, -51.72, 0], ['Honolulu', 21.31, -157.86, 0],
+  // 2026 Aug — Iceland & Spain
+  ['Ísafjörður', 66.08, -23.13, 1], ['Grundarfjörður', 64.92, -23.25, 1], ['Tórshavn', 62.01, -6.77, 1],
+  ['Oviedo', 43.36, -5.85, 1], ['Bilbao', 43.26, -2.94, 1], ['Burgos', 42.34, -3.70, 1],
+  ['Zaragoza', 41.65, -0.89, 1], ['València', 39.47, -0.38, 1], ['Palma', 39.57, 2.65, 1],
+  ['Barcelona', 41.39, 2.17, 1], ['Lisbon', 38.72, -9.14, 1], ['Dublin', 53.35, -6.26, 1],
+  ['Edinburgh', 55.95, -3.19, 1], ['Amsterdam', 52.37, 4.90, 1],
+  // 2027 Feb / Jul / Dec — southern South America
+  ['Puerto Montt', -41.47, -72.94, 1], ['Bahía Blanca', -38.72, -62.27, 1],
+  ['Neuquén', -38.95, -68.06, 1], ['Punta Arenas', -53.16, -70.91, 1], ['Ushuaia', -54.80, -68.30, 1],
+  // 2027 Aug — North Africa, Egypt, Arabia
+  ['Cádiz', 36.53, -6.29, 1], ['Tangier', 35.76, -5.83, 1], ['Casablanca', 33.57, -7.59, 1],
+  ['Algiers', 36.75, 3.06, 1], ['Tunis', 36.81, 10.18, 1], ['Tripoli', 32.89, 13.19, 1],
+  ['Benghazi', 32.12, 20.07, 1], ['Luxor', 25.69, 32.64, 1], ['Khartoum', 15.50, 32.56, 1],
+  ['Jeddah', 21.49, 39.19, 1], ['Sanaa', 15.37, 44.19, 1],
+  // 2028 Jan — equatorial South America
+  ['Quito', -0.18, -78.47, 1], ['Guayaquil', -2.17, -79.92, 1], ['Manaus', -3.12, -60.02, 1],
+  ['Paramaribo', 5.85, -55.20, 1], ['Porto', 41.15, -8.61, 1],
+  // 2028 Jul — Australia & NZ
+  ['Broome', -17.96, 122.24, 1], ['Darwin', -12.46, 130.84, 1], ['Alice Springs', -23.70, 133.88, 1],
+  ['Brisbane', -27.47, 153.03, 1], ['Melbourne', -37.81, 144.96, 1], ['Adelaide', -34.93, 138.60, 1],
+  ['Dunedin', -45.88, 170.50, 1], ['Queenstown', -45.03, 168.66, 1],
+  // 2029 — North America & Arctic
+  ['Toronto', 43.65, -79.38, 1], ['Winnipeg', 49.90, -97.14, 1], ['Denver', 39.74, -104.99, 1],
+  ['Tromsø', 69.65, 18.96, 1], ['Murmansk', 68.97, 33.08, 1], ['Longyearbyen', 78.22, 15.63, 1],
+  ['Ittoqqortoormiit', 70.48, -21.97, 1],
+  // 2030 Jun — Mediterranean to Japan
+  ['Athens', 37.98, 23.73, 1], ['Odesa', 46.48, 30.73, 1], ['Volgograd', 48.71, 44.51, 1],
+  ['Novosibirsk', 55.01, 82.94, 1], ['Sapporo', 43.06, 141.35, 1],
+  // 2030 Nov — southern Africa
+  ['Gaborone', -24.63, 25.92, 1], ['Maseru', -29.31, 27.48, 1], ['Durban', -29.86, 31.02, 1]
 ];
-const LABEL_ALWAYS = new Set(['Reykjavík', 'Nuuk', 'Madrid', 'London', 'Longyearbyen', 'Lisbon']);
-const LABEL_ZOOMED = new Set(['Bilbao', 'València', 'Palma', 'Barcelona', 'Paris', 'Dublin',
-                              'Oviedo', 'Burgos', 'Zaragoza', 'Tórshavn', 'Tromsø']);
 
 let land, borders;
 try {
@@ -595,20 +972,6 @@ try {
 }
 
 /* ------------------------------------------------------- eclipse setup */
-const GREATEST = ELEMENTS.greatest.utc;
-const CENTRAL = centralPhaseBounds();                 // umbra on Earth
-const PATH = centralLine(ELEMENTS, 30);               // central line samples
-const PATH_LINE = { type: 'LineString', coordinates: PATH.map(p => [p.lon, p.lat]) };
-
-// Outer contacts: penumbra first/last touches the Earth ( hypot(x,y) = 1 + l1 ).
-const penumbraTouch = (dir) => {
-  const f = t => { const e = elementsAt(t); return Math.hypot(e.x, e.y) - (1 + e.l1); };
-  let a = GREATEST, b = GREATEST + dir * 4 * 3600e3;
-  for (let i = 0; i < 60; i++) { const m = (a + b) / 2; if (f(m) < 0) a = m; else b = m; }
-  return (a + b) / 2;
-};
-const P1 = penumbraTouch(-1), P4 = penumbraTouch(1);
-
 /**
  * Half-width of the swept path: the umbra ellipse (semi-major along the Sun's
  * azimuth, semi-minor across it) projected perpendicular to its direction of
@@ -619,23 +982,52 @@ function halfWidthKm(p, velBrg) {
   const th = (p.sunAz - velBrg) * Math.PI / 180;
   return Math.hypot(p.semiMajorKm * Math.sin(th), p.semiMinorKm * Math.cos(th));
 }
-const velAt = i => {
-  const prv = PATH[Math.max(i - 1, 0)], nxt = PATH[Math.min(i + 1, PATH.length - 1)];
-  return bearing(prv.lat, prv.lon, nxt.lat, nxt.lon);
-};
 
-// Path-of-totality band, built from the umbra footprint swept along the line.
-const BAND = (() => {
-  const lft = [], rgt = [];
-  PATH.forEach((p, i) => {
-    const v = velAt(i), w = halfWidthKm(p, v);
-    lft.push(dest(p.lat, p.lon, w, v - 90));
-    rgt.push(dest(p.lat, p.lon, w, v + 90));
-  });
-  const ring = lft.concat(rgt.reverse());
-  ring.push(ring[0]);
-  return { type: 'Polygon', coordinates: [ring] };
-})();
+// The active eclipse and everything derived from it. Rebuilt on selection.
+let E, GREATEST, CENTRAL, PATH, PATH_LINE, BAND, P1, P4, PATH_NOUN;
+
+function loadEclipse(ecl) {
+  E = ecl;
+  GREATEST = E.greatest.utc;
+  PATH_NOUN = pathWord(E);                            // null for partials
+  CENTRAL = centralPhaseBounds(E);                    // null for partials
+  PATH = centralLine(E, 30);
+  PATH_LINE = PATH.length ? { type: 'LineString', coordinates: PATH.map(p => [p.lon, p.lat]) } : null;
+
+  const oc = outerContacts(E);
+  P1 = oc.start; P4 = oc.end;
+
+  // Central band, swept from the footprint along the line.
+  if (PATH.length > 1) {
+    const velAt = i => {
+      const prv = PATH[Math.max(i - 1, 0)], nxt = PATH[Math.min(i + 1, PATH.length - 1)];
+      return bearing(prv.lat, prv.lon, nxt.lat, nxt.lon);
+    };
+    const lft = [], rgt = [];
+    PATH.forEach((p, i) => {
+      const v = velAt(i), w = halfWidthKm(p, v);
+      lft.push(dest(p.lat, p.lon, w, v - 90));
+      rgt.push(dest(p.lat, p.lon, w, v + 90));
+    });
+    const ring = lft.concat(rgt.reverse());
+    ring.push(ring[0]);
+    BAND = { type: 'Polygon', coordinates: [ring] };
+  } else BAND = null;
+
+  // Live only while the eclipse is actually happening; otherwise park on maximum.
+  const now = Date.now();
+  state.live = now >= P1 && now <= P4;
+  state.time = state.live ? now : GREATEST;
+  state.playing = false;
+  if (userLoc) userContacts = localContacts(userLoc[0], userLoc[1], E);
+
+  shadeKey = ''; ringKey = '';
+  buildTicks();
+  $('#liveBtn').classList.toggle('on', state.live);
+  $('#liveBtn').disabled = !(now >= P1 && now <= P4);
+  $('#playBtn').textContent = '▶ Play';
+  if (typeof resize === 'function') resize();
+}
 
 function dest(lat, lon, km, brg) {
   const R = 6378.137, d = km / R, p1 = lat * Math.PI / 180, l1 = lon * Math.PI / 180, b = brg * Math.PI / 180;
@@ -647,7 +1039,7 @@ function dest(lat, lon, km, brg) {
 /* ------------------------------------------------------------- state */
 const state = {
   time: Date.now(),
-  live: true,
+  live: false,
   playing: false,
   follow: true,
   scale: 1,
@@ -655,8 +1047,6 @@ const state = {
   dragging: false,
   rings: true
 };
-if (state.time < P1 - 36e5 || state.time > P4 + 36e5) { state.live = false; state.time = GREATEST; }
-
 const projection = d3.geoOrthographic().clipAngle(90).precision(0.4);
 const path = d3.geoPath(projection, ctx);
 const graticule = d3.geoGraticule10();
@@ -692,7 +1082,7 @@ function buildShade(step) {
   if (shade.width !== sw || shade.height !== sh) { shade.width = sw; shade.height = sh; }
   const img = sctx.createImageData(sw, sh);
   const data = img.data;
-  const c = fieldContext(state.time);
+  const c = fieldContext(state.time, E);
   const [cx, cy] = projection.translate();
   const invert = projection.invert;
   const D2R = Math.PI / 180;
@@ -751,7 +1141,7 @@ let ringCache = null, ringKey = '';
 function buildRings() {
   const sw = Math.ceil(W / CSTEP), sh = Math.ceil(H / CSTEP);
   const vals = new Float64Array(sw * sh);
-  const c = fieldContext(state.time);
+  const c = fieldContext(state.time, E);
   const [cx, cy] = projection.translate();
   const D2R = Math.PI / 180;
 
@@ -858,19 +1248,21 @@ function draw() {
 
   if (state.rings) drawRings();
 
-  // path of totality
-  ctx.save();
-  ctx.beginPath(); path(BAND);
-  ctx.fillStyle = 'rgba(255,120,30,.16)'; ctx.fill();
-  ctx.strokeStyle = 'rgba(190,60,15,.85)'; ctx.lineWidth = 1.3; ctx.stroke();
-  ctx.beginPath(); path(PATH_LINE);
-  ctx.strokeStyle = 'rgba(150,35,10,.85)'; ctx.lineWidth = 1.4;
-  ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
-  ctx.restore();
+  // central path — absent for a partial eclipse, whose axis misses the Earth
+  if (BAND) {
+    ctx.save();
+    ctx.beginPath(); path(BAND);
+    ctx.fillStyle = 'rgba(255,120,30,.16)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(190,60,15,.85)'; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.beginPath(); path(PATH_LINE);
+    ctx.strokeStyle = 'rgba(150,35,10,.85)'; ctx.lineWidth = 1.4;
+    ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore();
+  }
 
-  // umbra
-  const p = shadowAxisPoint(state.time);
-  if (p) {
+  // umbra / antumbra
+  const p = shadowAxisPoint(state.time, E);
+  if (p.axisOnEarth) {
     const ring = umbraRing(p, 96);
     const poly = { type: 'Polygon', coordinates: [ring.concat([ring[0]])] };
     ctx.save();
@@ -935,17 +1327,21 @@ function drawStars() {
 function drawCities() {
   ctx.font = '600 11px -apple-system, system-ui, sans-serif';
   ctx.textBaseline = 'middle';
-  for (const [name, lat, lon] of CITIES) {
+  for (const [name, lat, lon, rank] of CITIES) {
     if (!visible([lon, lat])) continue;
     const c = projection([lon, lat]); if (!c) continue;
-    const inPath = localCircumstances(lat, lon, state.time).total;
+    const inPath = localCircumstances(lat, lon, state.time, E).central;
+    // secondary cities would just be speckle on a small globe
+    if (rank === 1 && R < 400 && !inPath) continue;
     ctx.beginPath(); ctx.arc(c[0], c[1], inPath ? 3.4 : 2.2, 0, 7);
     ctx.fillStyle = inPath ? '#ffd063' : '#1d3a58'; ctx.fill();
     ctx.lineWidth = 1.2;
     ctx.strokeStyle = inPath ? 'rgba(0,0,0,.7)' : 'rgba(255,255,255,.7)';
     ctx.stroke();
 
-    const show = LABEL_ALWAYS.has(name) || (R > 480 && LABEL_ZOOMED.has(name));
+    // always name somewhere currently under the central shadow; otherwise
+    // anchors at moderate zoom and path towns only when zoomed in
+    const show = inPath || (rank === 0 && R > 300) || (rank === 1 && R > 520);
     if (show && R > 190) {
       // halo keeps labels legible over both the bright globe and the shadow
       ctx.lineWidth = 3; ctx.lineJoin = 'round';
@@ -971,45 +1367,79 @@ function drawUser() {
 /* ------------------------------------------------------------- HUD */
 const pad = n => String(Math.floor(n)).padStart(2, '0');
 const hms = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${pad(s / 3600)}:${pad((s % 3600) / 60)}:${pad(s % 60)}`; };
+/** Countdown that grows a day component when the target is far off. */
+const countdown = ms => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const d = Math.floor(s / 86400);
+  return d > 0 ? `${d}d ${hms((s % 86400) * 1000)}` : hms(s * 1000);
+};
+const TYPE_LABEL = { total: 'Total', annular: 'Annular', partial: 'Partial' };
+const dateLabel = t => new Date(t).toLocaleDateString('en-GB',
+  { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const utc = t => new Date(t).toISOString().slice(11, 19);
 const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const localT = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
 function updateHUD() {
   const t = state.time;
-  const p = shadowAxisPoint(t);
+  const p = shadowAxisPoint(t, E);
+
+  const now = Date.now();
+  const inProgress = now >= P1 && now <= P4;
+  const upcoming = now < P1;
 
   // status badge
   const badge = $('#statusBadge');
-  if (state.live) badge.innerHTML = '<span class="badge live"><span class="dot"></span>Live</span>';
-  else if (t < P1) badge.innerHTML = '<span class="badge">Before eclipse</span>';
-  else if (t > P4) badge.innerHTML = '<span class="badge done">Eclipse over</span>';
-  else badge.innerHTML = '<span class="badge">Simulated time</span>';
+  if (state.live) badge.innerHTML = '<span class="badge live"><span class="dot"></span>Live now</span>';
+  else if (inProgress) badge.innerHTML = '<span class="badge live"><span class="dot"></span>Happening now</span>';
+  else if (upcoming) badge.innerHTML = `<span class="badge">${TYPE_LABEL[E.type]} · upcoming</span>`;
+  else badge.innerHTML = '<span class="badge done">Past eclipse</span>';
 
-  // countdown
   const lab = $('#clockLabel'), val = $('#clockValue'), sub = $('#clockSub');
-  val.classList.toggle('hot', t >= CENTRAL.start && t <= CENTRAL.end);
-  if (t < P1) { lab.textContent = 'Eclipse begins in'; val.textContent = hms(P1 - t); sub.textContent = `First contact ${utc(P1)} UTC`; }
-  else if (t < CENTRAL.start) { lab.textContent = 'Totality begins in'; val.textContent = hms(CENTRAL.start - t); sub.textContent = `Umbra lands ${utc(CENTRAL.start)} UTC`; }
-  else if (t <= CENTRAL.end) { lab.textContent = 'Totality ends in'; val.textContent = hms(CENTRAL.end - t); sub.textContent = `Umbra leaves ${utc(CENTRAL.end)} UTC`; }
-  else if (t <= P4) { lab.textContent = 'Eclipse ends in'; val.textContent = hms(P4 - t); sub.textContent = `Last contact ${utc(P4)} UTC`; }
-  else { lab.textContent = 'Eclipse ended'; val.textContent = utc(P4); sub.textContent = 'Next total eclipse: 2 Aug 2027'; }
+  const noun = PATH_NOUN;                           // 'totality' | 'annularity' | null
+  const Noun = noun ? noun[0].toUpperCase() + noun.slice(1) : null;
+
+  // Before the event the countdown tracks real time to first contact, whatever
+  // instant the globe is currently showing.
+  if (upcoming) {
+    val.classList.remove('hot');
+    lab.textContent = `${TYPE_LABEL[E.type]} solar eclipse in`;
+    val.textContent = countdown(P1 - now);
+    sub.textContent = `${dateLabel(GREATEST)} · ${E.regions}`;
+  } else if (now > P4) {
+    val.classList.remove('hot');
+    lab.textContent = 'This eclipse has ended';
+    val.textContent = dateLabel(GREATEST).replace(/ \d{4}$/, m => m);
+    const nxt = ECLIPSES.find(x => x.greatest.utc > now);
+    sub.textContent = nxt ? `Next: ${TYPE_LABEL[nxt.type].toLowerCase()}, ${nxt.short}` : 'End of catalog';
+  } else {
+    // in progress — count down against the shown time
+    val.classList.toggle('hot', !!CENTRAL && t >= CENTRAL.start && t <= CENTRAL.end);
+    if (t < P1) { lab.textContent = 'Eclipse begins in'; val.textContent = hms(P1 - t); sub.textContent = `First contact ${utc(P1)} UTC`; }
+    else if (CENTRAL && t < CENTRAL.start) { lab.textContent = `${Noun} begins in`; val.textContent = hms(CENTRAL.start - t); sub.textContent = `Shadow lands ${utc(CENTRAL.start)} UTC`; }
+    else if (CENTRAL && t <= CENTRAL.end) { lab.textContent = `${Noun} ends in`; val.textContent = hms(CENTRAL.end - t); sub.textContent = `Shadow leaves ${utc(CENTRAL.end)} UTC`; }
+    else if (t <= P4) { lab.textContent = 'Eclipse ends in'; val.textContent = hms(P4 - t); sub.textContent = `Last contact ${utc(P4)} UTC`; }
+    else { lab.textContent = 'Eclipse ended'; val.textContent = utc(P4); sub.textContent = dateLabel(GREATEST); }
+  }
 
   // stats
-  if (p) {
-    const a = shadowAxisPoint(t - 15000) || p, b = shadowAxisPoint(t + 15000) || p;
-    const km = d3.geoDistance([a.lon, a.lat], [b.lon, b.lat]) * 6378.137;
-    const vel = bearing(a.lat, a.lon, b.lat, b.lon);
-    $('#sPos').textContent = `${Math.abs(p.lat).toFixed(2)}°${p.lat >= 0 ? 'N' : 'S'} ${Math.abs(p.lon).toFixed(2)}°${p.lon >= 0 ? 'E' : 'W'}`;
-    $('#sSpeed').textContent = `${Math.round(km / 30 * 3600).toLocaleString()} km/h`;
+  const a = shadowAxisPoint(t - 15000, E), b = shadowAxisPoint(t + 15000, E);
+  const km = d3.geoDistance([a.lon, a.lat], [b.lon, b.lat]) * 6378.137;
+  const vel = bearing(a.lat, a.lon, b.lat, b.lon);
+  $('#sPos').textContent = `${Math.abs(p.lat).toFixed(2)}°${p.lat >= 0 ? 'N' : 'S'} ${Math.abs(p.lon).toFixed(2)}°${p.lon >= 0 ? 'E' : 'W'}`;
+  $('#sSpeed').textContent = `${Math.round(km / 30 * 3600).toLocaleString()} km/h`;
+  $('#sAlt').textContent = `${p.sunAlt.toFixed(1)}°`;
+  $('#sNear').textContent = nearestCity(p.lat, p.lon);
+  if (p.axisOnEarth) {
     $('#sWidth').textContent = `${Math.round(halfWidthKm(p, vel) * 2).toLocaleString()} km`;
-    $('#sAlt').textContent = `${p.sunAlt.toFixed(1)}°`;
     $('#sDur').textContent = durationAt(p.lat, p.lon);
-    $('#sNear').textContent = nearestCity(p.lat, p.lon);
   } else {
-    for (const id of ['#sPos', '#sSpeed', '#sWidth', '#sAlt', '#sDur', '#sNear']) $(id).textContent = '—';
-    $('#sPos').textContent = 'not on Earth';
+    // partial eclipse, or the shadow axis is off the limb near the contacts
+    $('#sWidth').textContent = '—';
+    $('#sDur').textContent = E.type === 'partial' ? 'none' : '—';
   }
+  $('#sPosLbl').textContent = p.axisOnEarth ? 'Shadow centre' : 'Max eclipse at';
+  $('#sDurLbl').textContent = PATH_NOUN ? Noun : 'Totality';
 
   // timeline
   $('#tlTime').textContent = utc(t);
@@ -1019,9 +1449,9 @@ function updateHUD() {
 }
 
 function durationAt(lat, lon) {
-  const c = localContacts(lat, lon);
-  if (!c || !c.totalStart) return '—';
-  return `${Math.round((c.totalEnd - c.totalStart) / 1000)} s`;
+  const c = localContacts(lat, lon, E);
+  if (!c || !c.centralStart) return '—';
+  return `${Math.round((c.centralEnd - c.centralStart) / 1000)} s`;
 }
 function nearestCity(lat, lon) {
   let best = null;
@@ -1126,7 +1556,7 @@ $('#locBtn').addEventListener('click', () => {
   btn.textContent = 'Locating…'; btn.disabled = true;
   navigator.geolocation.getCurrentPosition(pos => {
     userLoc = [pos.coords.latitude, pos.coords.longitude];
-    userContacts = localContacts(userLoc[0], userLoc[1]);
+    userContacts = localContacts(userLoc[0], userLoc[1], E);
     renderUserCard(); draw();
   }, err => {
     btn.disabled = false; btn.textContent = 'Use my location';
@@ -1139,7 +1569,7 @@ function renderUserCard() {
   const body = $('#locBody');
   const [lat, lon] = userLoc;
   const c = userContacts;
-  const now = localCircumstances(lat, lon, state.time);
+  const now = localCircumstances(lat, lon, state.time, E);
   const coord = `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
 
   if (!c) {
@@ -1153,29 +1583,51 @@ function renderUserCard() {
     ['Maximum', localT(c.max)],
     ['Ends', localT(c.end)]
   ];
-  if (c.totalStart) rows.splice(3, 0, ['Totality', `${Math.round((c.totalEnd - c.totalStart) / 1000)} s`]);
+  if (c.centralStart) rows.splice(3, 0,
+    [c.kind === 'annular' ? 'Annularity' : 'Totality',
+     `${Math.round((c.centralEnd - c.centralStart) / 1000)} s`]);
 
   body.innerHTML = `
     <div class="big">${(c.maxCirc.obscuration * 100).toFixed(1)}%</div>
-    <p class="note" style="margin:2px 0 9px">peak coverage · ${coord}${c.totalStart ? ' · <strong style="color:var(--gold)">TOTAL</strong>' : ''}</p>
+    <p class="note" style="margin:2px 0 9px">peak coverage · ${coord}${c.centralStart
+      ? ` · <strong style="color:var(--gold)">${c.kind === 'annular' ? 'ANNULAR' : 'TOTAL'}</strong>` : ''}</p>
     ${rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:12.5px">
         <span style="color:var(--muted)">${k}</span><span style="font-family:var(--mono)">${v}</span></div>`).join('')}
     <p class="note" style="margin:8px 0 0">Times in ${TZ}.</p>`;
 }
 
 /* ------------------------------------------------------------- ticks */
-(function buildTicks() {
+function buildTicks() {
   const el = $('#ticks'), span = P4 - P1;
-  const marks = [[P1, 'start', 0], [CENTRAL.start, 'totality', 1], [GREATEST, 'max', 0],
-                 [CENTRAL.end, 'ends', 1], [P4, 'end', 0]];
+  const marks = [[P1, 'start', 0], [GREATEST, 'max', 0], [P4, 'end', 0]];
+  if (CENTRAL) {
+    marks.splice(1, 0, [CENTRAL.start, PATH_NOUN, 1]);
+    marks.splice(3, 0, [CENTRAL.end, 'ends', 1]);
+  }
   el.innerHTML = marks.map(([t, l, minor]) => {
     const pct = (t - P1) / span * 100;
     return `<span class="tick${minor ? ' minor' : ''}" style="left:${Math.max(3, Math.min(97, pct))}%">${utc(t).slice(0, 5)} ${l}</span>`;
   }).join('');
-  const a = (CENTRAL.start - P1) / span * 100, b = (CENTRAL.end - P1) / span * 100;
-  $('#trackTotal').style.left = a + '%';
-  $('#trackTotal').style.width = (b - a) + '%';
+  const bar = $('#trackTotal');
+  if (CENTRAL) {
+    const a = (CENTRAL.start - P1) / span * 100, b = (CENTRAL.end - P1) / span * 100;
+    bar.style.left = a + '%'; bar.style.width = (b - a) + '%'; bar.style.display = '';
+  } else bar.style.display = 'none';
+}
+
+/* ---------------------------------------------------- eclipse picker */
+(function fillSelector() {
+  const now = Date.now();
+  $('#eclipseSel').innerHTML = ECLIPSES.map(e => {
+    const past = outerContacts(e).end < now;
+    return `<option value="${e.id}">${TYPE_LABEL[e.type]} · ${e.short} · ${e.regions}${past ? ' (past)' : ''}</option>`;
+  }).join('');
 })();
+$('#eclipseSel').addEventListener('change', ev => {
+  loadEclipse(byId(ev.target.value));
+  history.replaceState(null, '', ev.target.value === DEFAULT_ID ? location.pathname : `?e=${ev.target.value}`);
+  tick();
+});
 
 /* -------------------------------------------------------------- loop */
 function tick(force) {
@@ -1185,7 +1637,7 @@ function tick(force) {
     if (state.time > P4) { state.time = P4; state.playing = false; $('#playBtn').textContent = '▶ Play'; }
   }
   if (state.follow) {
-    const p = shadowAxisPoint(state.time) || { lon: ELEMENTS.greatest.lon, lat: ELEMENTS.greatest.lat };
+    const p = shadowAxisPoint(state.time, E);
     const target = [-p.lon, -Math.max(-60, Math.min(75, p.lat)) * 0.75];
     const cur = projection.rotate();
     const lerp = (a, b, f) => a + ((((b - a) % 360) + 540) % 360 - 180) * f;
@@ -1197,6 +1649,14 @@ function tick(force) {
 
 let hidden = false;
 document.addEventListener('visibilitychange', () => { hidden = document.hidden; });
+
+// Default to the next eclipse that hasn't finished; ?e=<id> overrides.
+const DEFAULT_ID = currentEclipse(Date.now(), e => outerContacts(e).end).id;
+const wanted = new URLSearchParams(location.search).get('e');
+const startId = (wanted && byId(wanted)) ? wanted : DEFAULT_ID;
+$('#eclipseSel').value = startId;
+loadEclipse(byId(startId));
+
 resize();
 tick(true);
 setInterval(() => { if (!hidden) tick(); }, 1000);

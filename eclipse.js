@@ -1,28 +1,10 @@
 /*
  * Besselian-element solar eclipse engine.
- * Elements: Total Solar Eclipse of 2026 Aug 12 (NASA/GSFC, Espenak).
- * t0 = 18:00:00.0 TDT, dT = 71.4s
+ *
+ * Every function takes an elements object `E` from ./eclipses.js, so one
+ * engine serves the whole catalog. Elements are polynomial in t = hours
+ * from E.t0, with E.t0 in TDT and E.dT = TDT - UT.
  */
-
-export const ELEMENTS = {
-  name: 'Total Solar Eclipse of 12 August 2026',
-  t0: Date.UTC(2026, 7, 12, 18, 0, 0),   // reference hour, TDT
-  dT: 71.4,                               // TDT - UT, seconds
-  x:  [0.475593, 0.5189288, -0.0000773, -0.0000088],
-  y:  [0.771161, -0.2301664, -0.0001245, 0.0000037],
-  d:  [14.79667, -0.012065, -0.000003],
-  l1: [0.537954, 0.0000940, -0.0000121],
-  l2: [-0.008142, 0.0000935, -0.0000121],
-  mu: [88.74776, 15.003093],
-  tanf1: 0.0046141,
-  tanf2: 0.0045911,
-  // published circumstances, used for display + sanity checks
-  greatest: { utc: Date.UTC(2026, 7, 12, 17, 45, 53, 800), lat: 65.225, lon: -25.228 },
-  gamma: 0.8978,
-  magnitude: 1.0386,
-  duration: 138.2,      // seconds at greatest eclipse
-  pathWidth: 294.0      // km
-};
 
 const E2 = 0.00669454;              // Earth flattening: e^2
 const R_EARTH = 6378.137;           // km, equatorial
@@ -32,7 +14,7 @@ const poly = (c, t) => c.reduce((s, v, i) => s + v * Math.pow(t, i), 0);
 const dpoly = (c, t) => c.reduce((s, v, i) => (i ? s + i * v * Math.pow(t, i - 1) : s), 0);
 
 /** Besselian elements evaluated at a UTC instant (ms). */
-export function elementsAt(utcMs, E = ELEMENTS) {
+export function elementsAt(utcMs, E) {
   // t is hours from t0 in TDT; input is UT, so add dT
   const t = (utcMs + E.dT * 1000 - E.t0) / 3600000;
   return {
@@ -49,9 +31,14 @@ export function elementsAt(utcMs, E = ELEMENTS) {
 
 /**
  * Point where the shadow axis meets the Earth's surface.
- * Returns null when the axis misses the Earth (no central eclipse).
+ *
+ * When the axis misses the Earth — every partial eclipse, and the start and
+ * end of every central one — there is no such point. Rather than returning
+ * null, the axis is clamped to the nearest point on the limb, which is where
+ * greatest eclipse is actually seen. Callers must check `axisOnEarth` before
+ * treating the result as a totality/annularity centre.
  */
-export function shadowAxisPoint(utcMs, E = ELEMENTS) {
+export function shadowAxisPoint(utcMs, E) {
   const e = elementsAt(utcMs, E);
   const { x, y, d, mu } = e;
 
@@ -59,14 +46,19 @@ export function shadowAxisPoint(utcMs, E = ELEMENTS) {
   const sd1 = Math.sin(d) / rho1;
   const cd1 = Math.sqrt(1 - E2) * Math.cos(d) / rho1;
 
-  const eta1 = y / rho1;
-  const zeta1sq = 1 - x * x - eta1 * eta1;
-  if (zeta1sq <= 0) return null;                 // axis misses the Earth
-  const zeta1 = Math.sqrt(zeta1sq);
+  let xi = x, eta1 = y / rho1, zeta1;
+  const r2 = xi * xi + eta1 * eta1;
+  const axisOnEarth = r2 < 1;
+  if (axisOnEarth) {
+    zeta1 = Math.sqrt(1 - r2);
+  } else {
+    const r = Math.sqrt(r2);                     // project onto the limb
+    xi /= r; eta1 /= r; zeta1 = 0;
+  }
 
   const sinPhi1 = eta1 * cd1 + zeta1 * sd1;
   const phi1 = Math.asin(Math.max(-1, Math.min(1, sinPhi1)));
-  const theta = Math.atan2(x, zeta1 * cd1 - eta1 * sd1) * R2D;
+  const theta = Math.atan2(xi, zeta1 * cd1 - eta1 * sd1) * R2D;
 
   const lat = Math.atan(Math.tan(phi1) / Math.sqrt(1 - E2)) * R2D;
   // mu is referred to TDT; rotate back to UT. West-positive -> negate for east.
@@ -85,7 +77,7 @@ export function shadowAxisPoint(utcMs, E = ELEMENTS) {
   const sunAz = bearing(lat, lon, sub.lat, sub.lon);
 
   return {
-    lat, lon, zeta1, sunAlt, sunAz,
+    lat, lon, zeta1, sunAlt, sunAz, axisOnEarth,
     semiMinorKm: Math.abs(L2p) * R_EARTH,                       // across the Sun's azimuth
     semiMajorKm: Math.abs(L2p) * R_EARTH / Math.max(zeta1, 0.02), // along it
     umbraWidthKm: widthKm,
@@ -94,8 +86,23 @@ export function shadowAxisPoint(utcMs, E = ELEMENTS) {
   };
 }
 
+/**
+ * First and last instants at which the penumbra touches the Earth, i.e. the
+ * outer contacts of the eclipse as a whole. Solves hypot(x,y) = 1 + l1.
+ */
+export function outerContacts(E) {
+  const g = E.greatest.utc, span = 4 * 3600e3;
+  const f = t => { const e = elementsAt(t, E); return Math.hypot(e.x, e.y) - (1 + e.l1); };
+  const edge = dir => {
+    let a = g, b = g + dir * span;
+    for (let i = 0; i < 60; i++) { const m = (a + b) / 2; if (f(m) < 0) a = m; else b = m; }
+    return (a + b) / 2;
+  };
+  return { start: edge(-1), end: edge(1) };
+}
+
 /** Point where the shadow axis is vertical — effectively the sub-solar point. */
-export function subSolarPoint(e, E = ELEMENTS) {
+export function subSolarPoint(e, E) {
   let lon = -(e.mu - 1.00273791 * (E.dT * 15 / 3600));
   lon = ((lon + 540) % 360) - 180;
   const lat = Math.atan(Math.tan(e.d) / (1 - E2)) * R2D;
@@ -136,7 +143,7 @@ export function umbraRing(p, steps = 72) {
  * Precompute the per-instant terms the pixel shader needs, so the raster
  * loop does no polynomial evaluation.
  */
-export function fieldContext(utcMs, E = ELEMENTS) {
+export function fieldContext(utcMs, E) {
   const e = elementsAt(utcMs, E);
   return {
     x: e.x, y: e.y, l1: e.l1, l2: e.l2, tanf1: e.tanf1, tanf2: e.tanf2,
@@ -168,7 +175,8 @@ export function fieldAt(c, latRad, lonRad, out) {
   const L2 = c.l2 - zeta * c.tanf2;
 
   const rM = (L1 - L2) / 2, rS = (L1 + L2) / 2;
-  out.total = m < Math.abs(L2) && L2 < 0;
+  out.central = m < Math.abs(L2);
+  out.total = out.central && L2 < 0;
   if (m >= rM + rS) { out.obsc = 0; return out; }
   if (m <= Math.abs(rM - rS)) { out.obsc = rM >= rS ? 1 : (rM * rM) / (rS * rS); return out; }
   const c1 = (m * m + rS * rS - rM * rM) / (2 * m * rS);
@@ -186,7 +194,7 @@ export function fieldAt(c, latRad, lonRad, out) {
  * magnitude = fraction of the Sun's DIAMETER covered.
  * obscuration = fraction of the Sun's AREA covered.
  */
-export function localCircumstances(lat, lon, utcMs, E = ELEMENTS) {
+export function localCircumstances(lat, lon, utcMs, E) {
   const e = elementsAt(utcMs, E);
   const phi = lat * D2R;
 
@@ -201,7 +209,7 @@ export function localCircumstances(lat, lon, utcMs, E = ELEMENTS) {
   const eta = rhoSin * Math.cos(e.d) - rhoCos * Math.cos(H) * Math.sin(e.d);
   const zeta = rhoSin * Math.sin(e.d) + rhoCos * Math.cos(H) * Math.cos(e.d);
 
-  if (zeta < 0) return { magnitude: 0, obscuration: 0, sunUp: false, total: false };
+  if (zeta < 0) return { magnitude: 0, obscuration: 0, sunUp: false, central: false, total: false, annular: false };
 
   const dxi = e.x - xi, deta = e.y - eta;
   const m = Math.hypot(dxi, deta);
@@ -210,13 +218,17 @@ export function localCircumstances(lat, lon, utcMs, E = ELEMENTS) {
 
   let mag = (L1 - m) / (L1 + L2);
   if (!isFinite(mag) || mag < 0) mag = 0;
-  const total = m < Math.abs(L2) && L2 < 0;
+  // Inside the central shadow. L2 < 0 is an umbra (total); L2 > 0 is an
+  // antumbra (annular) — both are "central", so the sign selects the kind.
+  const central = m < Math.abs(L2);
 
   return {
     magnitude: mag,
     obscuration: obscurationFrom(m, L1, L2),
     sunUp: true,
-    total,
+    central,
+    total: central && L2 < 0,
+    annular: central && L2 > 0,
     sunAlt: Math.asin(Math.max(-1, Math.min(1, zeta))) * R2D
   };
 }
@@ -241,27 +253,31 @@ function obscurationFrom(m, L1, L2) {
   return (A1 + A2 - A3) / (Math.PI * b * b);
 }
 
-/** Sample the central line over the whole central phase. */
-export function centralLine(E = ELEMENTS, stepSec = 60) {
+/** Sample the central line over the whole central phase. Empty for partials. */
+export function centralLine(E, stepSec = 60) {
+  const b = centralPhaseBounds(E);
+  if (!b) return [];
   const pts = [];
-  const start = E.greatest.utc - 3 * 3600 * 1000;
-  const end = E.greatest.utc + 3 * 3600 * 1000;
-  for (let t = start; t <= end; t += stepSec * 1000) {
+  for (let t = b.start; t <= b.end; t += stepSec * 1000) {
     const p = shadowAxisPoint(t, E);
-    if (p) pts.push({ ...p, utc: t });
+    if (p.axisOnEarth) pts.push({ ...p, utc: t });
   }
   return pts;
 }
 
-/** First and last instant of the central (umbral) phase, to the second. */
-export function centralPhaseBounds(E = ELEMENTS) {
+/**
+ * First and last instant of the central (umbral or antumbral) phase.
+ * Returns null for a partial eclipse, where the axis never meets the Earth.
+ */
+export function centralPhaseBounds(E) {
   const g = E.greatest.utc, span = 3 * 3600 * 1000;
+  if (!shadowAxisPoint(g, E).axisOnEarth) return null;
   const edge = (dir) => {
     let lo = g, hi = g + dir * span;
-    if (shadowAxisPoint(hi, E)) return hi;
+    if (shadowAxisPoint(hi, E).axisOnEarth) return hi;
     for (let i = 0; i < 60; i++) {
       const mid = (lo + hi) / 2;
-      if (shadowAxisPoint(mid, E)) lo = mid; else hi = mid;
+      if (shadowAxisPoint(mid, E).axisOnEarth) lo = mid; else hi = mid;
     }
     return lo;
   };
@@ -272,11 +288,11 @@ export function centralPhaseBounds(E = ELEMENTS) {
  * Local contact times, found by scanning then bisecting.
  * Returns null when the location sees no eclipse at all.
  */
-export function localContacts(lat, lon, E = ELEMENTS) {
+export function localContacts(lat, lon, E) {
   const g = E.greatest.utc;
   const span = 3.5 * 3600 * 1000, step = 30 * 1000;
   const mag = (t) => localCircumstances(lat, lon, t, E).magnitude;
-  const isTotal = (t) => localCircumstances(lat, lon, t, E).total;
+  const isCentral = (t) => localCircumstances(lat, lon, t, E).central;
 
   let best = null;
   for (let t = g - span; t <= g + span; t += step) {
@@ -304,9 +320,10 @@ export function localContacts(lat, lon, E = ELEMENTS) {
   const c = { max: peak, maxCirc: localCircumstances(lat, lon, peak, E) };
   c.start = cross(g - span, peak, (t) => mag(t) > 0);
   c.end = cross(g + span, peak, (t) => mag(t) > 0);
-  if (isTotal(peak)) {
-    c.totalStart = cross(c.start, peak, (t) => isTotal(t));
-    c.totalEnd = cross(c.end, peak, (t) => isTotal(t));
+  if (isCentral(peak)) {
+    c.centralStart = cross(c.start, peak, (t) => isCentral(t));
+    c.centralEnd = cross(c.end, peak, (t) => isCentral(t));
+    c.kind = c.maxCirc.annular ? 'annular' : 'total';
   }
   return c;
 }

@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eclipse Tracker — Total Solar Eclipse, 12 August 2026</title>
+<meta name="description" content="Live globe tracker for the total solar eclipse of 12 August 2026. Real-time umbra position, path of totality, and local circumstances computed from NASA Besselian elements.">
+<meta name="theme-color" content="#05070d">
+<meta property="og:title" content="Eclipse Tracker — 12 August 2026">
+<meta property="og:description" content="Watch the Moon's shadow cross the Earth in real time.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23ffcc5c'/%3E%3Ccircle cx='11' cy='14' r='12' fill='%2305070d'/%3E%3C/svg%3E">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --bg: #05070d;
+    --panel: rgba(14, 20, 33, 0.72);
+    --edge: rgba(255, 255, 255, 0.09);
+    --ink: #e9eef7;
+    --muted: #8695ad;
+    --gold: #ffc44d;
+    --hot: #ff7a45;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; overflow: hidden;
+  }
+  #stage { position: fixed; inset: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #globe { cursor: grab; }
+  #globe.dragging { cursor: grabbing; }
+
+  /* ---------- chrome ---------- */
+  .hud { position: fixed; z-index: 5; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+
+  #top { top: 0; left: 0; right: 0; padding: 18px 20px;
+         display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
+         background: linear-gradient(180deg, rgba(5,7,13,.85), transparent); }
+  .title { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 3px; font-weight: 600; }
+  .subtitle { font-size: 19px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+
+  .badge { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px;
+           font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+           border: 1px solid var(--edge); background: var(--panel); backdrop-filter: blur(12px); white-space: nowrap; }
+  .badge.live { color: #ff6b6b; border-color: rgba(255,107,107,.35); background: rgba(255,107,107,.1); }
+  .badge.live .dot { width: 7px; height: 7px; border-radius: 50%; background: #ff6b6b; animation: pulse 1.6s ease-in-out infinite; }
+  .badge.done { color: var(--muted); }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.8); } }
+
+  .card { background: var(--panel); border: 1px solid var(--edge); border-radius: 14px;
+          backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3); }
+
+  /* countdown */
+  #clock { position: fixed; left: 20px; top: 86px; z-index: 5; padding: 14px 18px; min-width: 234px; }
+  #clockLabel { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  #clockValue { font-family: var(--mono); font-size: 34px; font-weight: 600; letter-spacing: -.02em;
+                margin-top: 4px; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  #clockValue.hot { color: var(--gold); }
+  #clockSub { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+
+  /* stats */
+  #stats { position: fixed; left: 20px; top: 214px; z-index: 5; padding: 6px 4px; width: 252px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 14px; }
+  .row + .row { border-top: 1px solid rgba(255,255,255,.05); }
+  .row dt { font-size: 12.5px; color: var(--muted); margin: 0; }
+  .row dd { margin: 0; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+
+  /* right column */
+  #side { position: fixed; right: 20px; top: 86px; z-index: 5; width: 268px; display: flex; flex-direction: column; gap: 12px; }
+  .cardHead { padding: 12px 14px 9px; font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase;
+              color: var(--muted); font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .cardBody { padding: 0 14px 12px; font-size: 13px; }
+  .big { font-size: 27px; font-weight: 650; font-family: var(--mono); letter-spacing: -.02em; }
+  .note { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+
+  #legend { margin-top: 11px; display: flex; flex-direction: column; gap: 6px; }
+  .lg { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted); }
+  .sw { width: 15px; height: 11px; border-radius: 3px; border: 1px solid rgba(255,255,255,.22); flex: none; }
+
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+         padding: 8px 13px; border-radius: 9px; border: 1px solid var(--edge);
+         background: rgba(255,255,255,.05); font-size: 12.5px; font-weight: 600;
+         transition: background .16s, border-color .16s, color .16s; white-space: nowrap; }
+  .btn:hover { background: rgba(255,255,255,.11); }
+  .btn.on { background: rgba(255,196,77,.16); border-color: rgba(255,196,77,.45); color: var(--gold); }
+  .btn.wide { width: 100%; }
+  .btn:disabled { opacity: .45; cursor: default; }
+
+  /* timeline */
+  #bottom { left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 5; width: min(760px, calc(100vw - 40px)); padding: 12px 16px 13px; }
+  .tlTop { display: flex; align-items: center; gap: 12px; margin-bottom: 9px; }
+  .tlTime { font-family: var(--mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tlZone { font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+  .tlTop > div:last-child { flex: none; }
+  .spacer { flex: 1; }
+  .track { position: relative; height: 26px; }
+  .trackBar { position: absolute; left: 0; right: 0; top: 10px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; }
+  .trackTotal { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, var(--hot), var(--gold)); opacity: .85; }
+  #scrub { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; -webkit-appearance: none; appearance: none; background: none; }
+  #scrub::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; border: 3px solid #05070d; box-shadow: 0 0 0 1px rgba(255,255,255,.5), 0 2px 8px rgba(0,0,0,.6); cursor: grab; margin-top: 0; }
+  #scrub::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff;
+      border: 3px solid #05070d; box-shadow: 0 0 0 1px rgba(255,255,255,.5); cursor: grab; }
+  .ticks { position: relative; height: 15px; margin-top: 1px; font-size: 10px; color: var(--muted); }
+  .tick { position: absolute; transform: translateX(-50%); white-space: nowrap; font-family: var(--mono); }
+  .tick::before { content: ""; position: absolute; left: 50%; top: -5px; width: 1px; height: 4px; background: rgba(255,255,255,.28); }
+
+  #hint { position: fixed; bottom: 128px; left: 50%; transform: translateX(-50%); z-index: 4;
+          font-size: 11.5px; color: var(--muted); background: var(--panel); border: 1px solid var(--edge);
+          padding: 5px 12px; border-radius: 999px; backdrop-filter: blur(10px); transition: opacity .5s; }
+
+  #err { position: fixed; inset: 0; display: none; place-items: center; z-index: 20; background: var(--bg); padding: 24px; text-align: center; }
+
+  #scrim { display: none; }
+  .narrow-only { display: none; }
+  #sheetClose { display: none; }
+
+  @media (min-width: 901px) { #panels, #sheet { display: contents; } }
+
+  @media (max-width: 900px) {
+    .wide-only { display: none; }
+    .narrow-only { display: inline-flex; }
+    #top { padding: 11px 13px; background: linear-gradient(180deg, rgba(5,7,13,.95), rgba(5,7,13,.7) 65%, transparent); }
+    .subtitle { font-size: 16px; white-space: nowrap; }
+    #panels { display: contents; }
+
+    /* compact countdown pinned under the header */
+    #clock { position: fixed; left: 12px; right: 12px; top: 66px; width: auto; min-width: 0;
+             padding: 9px 14px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    #clockLabel { font-size: 10px; }
+    #clockValue { font-size: 26px; margin-top: 0; }
+    #clockSub { margin-top: 0; font-size: 11px; width: 100%; }
+
+    /* everything else lives in a bottom sheet */
+    #sheet { position: fixed; z-index: 7; left: 0; right: 0; bottom: 0;
+             display: flex; flex-direction: column; gap: 10px;
+             padding: 12px 13px calc(16px + env(safe-area-inset-bottom));
+             background: rgba(9, 13, 22, .97); border-top: 1px solid var(--edge);
+             border-radius: 18px 18px 0 0; box-shadow: 0 -12px 40px rgba(0,0,0,.55);
+             max-height: 82dvh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+             transform: translateY(101%); transition: transform .3s cubic-bezier(.32,.82,.36,1);
+             visibility: hidden; }
+    body.sheet-open #sheet { transform: none; visibility: visible; }
+    #sheetClose { display: inline-flex; align-self: flex-end; }
+    #side { position: static; width: auto; }
+    #stats { position: static; width: auto; display: grid; grid-template-columns: 1fr 1fr; padding: 4px 2px; }
+    .row { padding: 7px 11px; }
+    .row + .row { border-top: 0; }
+    #stats .row:nth-child(n+3) { border-top: 1px solid rgba(255,255,255,.05); }
+
+    #scrim { display: block; position: fixed; inset: 0; z-index: 6; background: rgba(0,0,0,.5);
+             opacity: 0; pointer-events: none; transition: opacity .3s; }
+    body.sheet-open #scrim { opacity: 1; pointer-events: auto; }
+
+    #bottom { bottom: max(10px, env(safe-area-inset-bottom)); padding: 10px 12px 11px; }
+    .tlTop { gap: 7px; }
+    .btn { padding: 7px 10px; font-size: 12px; }
+    .tlTime { font-size: 14px; }
+    .tlZone { font-size: 9.5px; letter-spacing: .03em; }
+    .tick.minor { display: none; }
+    #hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="globe"></canvas>
+</div>
+
+<div class="hud" id="top">
+  <div>
+    <p class="title">Total Solar Eclipse</p>
+    <h1 class="subtitle">12 August 2026<span class="wide-only"> · Greenland · Iceland · Spain</span></h1>
+  </div>
+  <div id="statusBadge"></div>
+</div>
+
+<div id="panels">
+  <div class="card" id="clock">
+    <div id="clockLabel">Loading</div>
+    <div id="clockValue">--:--:--</div>
+    <div id="clockSub"></div>
+  </div>
+
+  <div id="sheet">
+  <button class="btn" id="sheetClose" aria-label="Close">✕ Close</button>
+
+  <dl class="card" id="stats">
+    <div class="row"><dt>Shadow centre</dt><dd id="sPos">—</dd></div>
+    <div class="row"><dt>Ground speed</dt><dd id="sSpeed">—</dd></div>
+    <div class="row"><dt>Path width</dt><dd id="sWidth">—</dd></div>
+    <div class="row"><dt>Sun altitude</dt><dd id="sAlt">—</dd></div>
+    <div class="row"><dt>Totality</dt><dd id="sDur">—</dd></div>
+    <div class="row"><dt>Nearest city</dt><dd id="sNear">—</dd></div>
+  </dl>
+
+  <div id="side">
+    <div class="card">
+      <div class="cardHead">Your location</div>
+      <div class="cardBody" id="locBody">
+        <button class="btn wide" id="locBtn">Use my location</button>
+        <p class="note" style="margin:9px 0 0">Computes your local eclipse magnitude and contact times.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="cardHead">View</div>
+      <div class="cardBody">
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          <button class="btn on" id="followBtn">Follow shadow</button>
+          <button class="btn" id="resetBtn">Reset</button>
+        </div>
+        <div id="legend">
+          <div class="lg"><span class="sw" style="background:linear-gradient(90deg,#9dc4e2,#0a1020)"></span>Partial shadow (penumbra)</div>
+          <div class="lg"><span class="sw" style="background:#05060c;border-color:rgba(255,140,60,.95)"></span>Umbra — totality now</div>
+          <div class="lg"><span class="sw" style="background:rgba(255,120,30,.35);border-color:rgba(190,60,15,.9)"></span>Path of totality</div>
+          <div class="lg"><span class="sw" style="background:#0a1020"></span>Night side</div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="padding:0 2px">Computed live from NASA/GSFC Besselian elements. Near the very edge of the path, times can differ by a few seconds from the lunar limb profile.</p>
+  </div>
+  </div>
+</div>
+<div id="scrim"></div>
+
+<div class="card hud" id="bottom">
+  <div class="tlTop">
+    <button class="btn" id="playBtn" title="Play / pause">▶ Play</button>
+    <button class="btn" id="liveBtn">● Live</button>
+    <button class="btn narrow-only" id="moreBtn">Details</button>
+    <div class="spacer"></div>
+    <div style="text-align:right">
+      <div class="tlTime" id="tlTime">--:--:--</div>
+      <div class="tlZone" id="tlZone">UTC</div>
+    </div>
+  </div>
+  <div class="track">
+    <div class="trackBar"><div class="trackTotal" id="trackTotal"></div></div>
+    <input type="range" id="scrub" min="0" max="1000" value="0" step="1" aria-label="Eclipse timeline">
+  </div>
+  <div class="ticks" id="ticks"></div>
+</div>
+
+<div id="hint">Drag to rotate · scroll to zoom</div>
+<div id="err"><div><h2>Couldn't load map data</h2><p class="note" id="errMsg"></p></div></div>
+
+<script src="./vendor/d3.min.js"></script>
+<script src="./vendor/topojson-client.min.js"></script>
+<script type="module">
+import {
+  ELEMENTS, shadowAxisPoint, localCircumstances, localContacts,
+  centralLine, centralPhaseBounds, fieldContext, fieldAt, umbraRing, subSolarPoint,
+  elementsAt, bearing
+} from './eclipse.js';
+
+const $ = s => document.querySelector(s);
+const canvas = $('#globe'), ctx = canvas.getContext('2d', { alpha: false });
+
+/* ---------------------------------------------------------------- data */
+const CITIES = [
+  ['Reykjavík', 64.146, -21.94], ['Nuuk', 64.18, -51.72], ['Ittoqqortoormiit', 70.48, -21.97],
+  ['Tórshavn', 62.01, -6.77], ['Bilbao', 43.263, -2.935], ['Oviedo', 43.36, -5.845],
+  ['Burgos', 42.34, -3.70], ['Zaragoza', 41.649, -0.889], ['València', 39.47, -0.376],
+  ['Palma', 39.57, 2.65], ['Madrid', 40.417, -3.703], ['Barcelona', 41.39, 2.17],
+  ['Lisbon', 38.72, -9.14], ['London', 51.51, -0.13], ['Paris', 48.86, 2.35],
+  ['Dublin', 53.35, -6.26], ['Reykjanes', 63.82, -22.70], ['Longyearbyen', 78.22, 15.63],
+  ['Tromsø', 69.65, 18.96], ['Moscow', 55.76, 37.62], ['New York', 40.71, -74.01],
+  ['Rabat', 34.02, -6.84], ['Rome', 41.90, 12.50], ['Berlin', 52.52, 13.40],
+  ['Nouakchott', 18.08, -15.98], ['Reykholt', 64.66, -21.29]
+];
+const LABEL_ALWAYS = new Set(['Reykjavík', 'Nuuk', 'Madrid', 'London', 'Longyearbyen', 'Lisbon']);
+const LABEL_ZOOMED = new Set(['Bilbao', 'València', 'Palma', 'Barcelona', 'Paris', 'Dublin',
+                              'Oviedo', 'Burgos', 'Zaragoza', 'Tórshavn', 'Tromsø']);
+
+let land, borders;
+try {
+  const [lTopo, cTopo] = await Promise.all([
+    fetch('./land110m.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+    fetch('./countries110m.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  ]);
+  land = topojson.feature(lTopo, lTopo.objects.land);
+  borders = topojson.mesh(cTopo, cTopo.objects.countries, (a, b) => a !== b);
+} catch (e) {
+  $('#err').style.display = 'grid';
+  $('#errMsg').textContent = e.message;
+  throw e;
+}
+
+/* ------------------------------------------------------- eclipse setup */
+const GREATEST = ELEMENTS.greatest.utc;
+const CENTRAL = centralPhaseBounds();                 // umbra on Earth
+const PATH = centralLine(ELEMENTS, 30);               // central line samples
+const PATH_LINE = { type: 'LineString', coordinates: PATH.map(p => [p.lon, p.lat]) };
+
+// Outer contacts: penumbra first/last touches the Earth ( hypot(x,y) = 1 + l1 ).
+const penumbraTouch = (dir) => {
+  const f = t => { const e = elementsAt(t); return Math.hypot(e.x, e.y) - (1 + e.l1); };
+  let a = GREATEST, b = GREATEST + dir * 4 * 3600e3;
+  for (let i = 0; i < 60; i++) { const m = (a + b) / 2; if (f(m) < 0) a = m; else b = m; }
+  return (a + b) / 2;
+};
+const P1 = penumbraTouch(-1), P4 = penumbraTouch(1);
+
+/**
+ * Half-width of the swept path: the umbra ellipse (semi-major along the Sun's
+ * azimuth, semi-minor across it) projected perpendicular to its direction of
+ * travel. Near sunrise/sunset the ellipse is hugely elongated, so which axis
+ * dominates depends on the angle between the Sun and the track.
+ */
+function halfWidthKm(p, velBrg) {
+  const th = (p.sunAz - velBrg) * Math.PI / 180;
+  return Math.hypot(p.semiMajorKm * Math.sin(th), p.semiMinorKm * Math.cos(th));
+}
+const velAt = i => {
+  const prv = PATH[Math.max(i - 1, 0)], nxt = PATH[Math.min(i + 1, PATH.length - 1)];
+  return bearing(prv.lat, prv.lon, nxt.lat, nxt.lon);
+};
+
+// Path-of-totality band, built from the umbra footprint swept along the line.
+const BAND = (() => {
+  const lft = [], rgt = [];
+  PATH.forEach((p, i) => {
+    const v = velAt(i), w = halfWidthKm(p, v);
+    lft.push(dest(p.lat, p.lon, w, v - 90));
+    rgt.push(dest(p.lat, p.lon, w, v + 90));
+  });
+  const ring = lft.concat(rgt.reverse());
+  ring.push(ring[0]);
+  return { type: 'Polygon', coordinates: [ring] };
+})();
+
+function dest(lat, lon, km, brg) {
+  const R = 6378.137, d = km / R, p1 = lat * Math.PI / 180, l1 = lon * Math.PI / 180, b = brg * Math.PI / 180;
+  const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(b));
+  const l2 = l1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(p1), Math.cos(d) - Math.sin(p1) * Math.sin(p2));
+  return [((l2 * 180 / Math.PI + 540) % 360) - 180, p2 * 180 / Math.PI];
+}
+
+/* ------------------------------------------------------------- state */
+const state = {
+  time: Date.now(),
+  live: true,
+  playing: false,
+  follow: true,
+  scale: 1,
+  rot: [25, -35],
+  dragging: false
+};
+if (state.time < P1 - 36e5 || state.time > P4 + 36e5) { state.live = false; state.time = GREATEST; }
+
+const projection = d3.geoOrthographic().clipAngle(90).precision(0.4);
+const path = d3.geoPath(projection, ctx);
+const graticule = d3.geoGraticule10();
+
+let W = 0, H = 0, R = 0, dpr = 1;
+const shade = document.createElement('canvas');
+const sctx = shade.getContext('2d');
+let shadeKey = '';
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const wide = W > 900;
+  // vertical band left over between the countdown card and the timeline bar
+  const top = wide ? 90 : 148, bot = wide ? H - 90 : H - 118;
+  const avail = Math.min(W - (wide ? 580 : 24), bot - top);
+  R = Math.max(110, avail / 2) * state.scale;
+  projection.translate([wide ? W / 2 + 10 : W / 2, (top + bot) / 2]).scale(R);
+  shadeKey = '';
+  draw();
+}
+window.addEventListener('resize', resize);
+
+/* --------------------------------------------------- shading raster */
+// Per-pixel Sun altitude + obscuration, drawn at reduced resolution and
+// scaled up. Recomputed only when time, rotation or size actually change.
+const px = { sinAlt: 0, obsc: 0, total: false };
+function buildShade(step) {
+  const sw = Math.ceil(W / step), sh = Math.ceil(H / step);
+  if (shade.width !== sw || shade.height !== sh) { shade.width = sw; shade.height = sh; }
+  const img = sctx.createImageData(sw, sh);
+  const data = img.data;
+  const c = fieldContext(state.time);
+  const [cx, cy] = projection.translate();
+  const invert = projection.invert;
+  const D2R = Math.PI / 180;
+
+  for (let j = 0; j < sh; j++) {
+    const y = j * step + step / 2;
+    for (let i = 0; i < sw; i++) {
+      const x = i * step + step / 2;
+      const o = (j * sw + i) * 4;
+      // cheap disc test before the (costlier) inverse projection
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy > R * R) { data[o + 3] = 0; continue; }
+      const ll = invert([x, y]);
+      if (!ll) { data[o + 3] = 0; continue; }
+
+      fieldAt(c, ll[1] * D2R, ll[0] * D2R, px);
+
+      // night / twilight
+      let a = 0, r = 4, g = 8, b = 20;
+      const alt = px.sinAlt;
+      if (alt < 0) a = Math.min(1, -alt / 0.21) * 0.62 + 0.14;
+      else if (alt < 0.09) a = (1 - alt / 0.09) * 0.14;
+
+      // Eclipse darkening. The exponent is below 1 so the faint outer
+      // penumbra still reads on screen — real daylight barely dims there.
+      if (px.obsc > 0) {
+        const e = Math.pow(px.obsc, 1.15) * 0.9;
+        if (e > a) { a = e; r = 7; g = 8; b = 18; }
+      }
+      data[o] = r; data[o + 1] = g; data[o + 2] = b;
+      data[o + 3] = Math.round(Math.min(1, a) * 255);
+    }
+  }
+  sctx.putImageData(img, 0, 0);
+}
+
+/* ---------------------------------------------------------- drawing */
+function draw() {
+  if (!W) return;
+  ctx.fillStyle = '#05070d';
+  ctx.fillRect(0, 0, W, H);
+  drawStars();
+
+  const [cx, cy] = projection.translate();
+
+  // ocean — bright daylight globe, so the shadow reads as darkness
+  ctx.save();
+  const oc = ctx.createRadialGradient(cx - R * .3, cy - R * .35, R * .05, cx, cy, R);
+  oc.addColorStop(0, '#bcdcf4'); oc.addColorStop(.55, '#7db2da'); oc.addColorStop(1, '#4d84b4');
+  ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = oc; ctx.fill();
+  ctx.restore();
+
+  // graticule
+  ctx.beginPath(); path(graticule);
+  ctx.strokeStyle = 'rgba(20,55,90,.13)'; ctx.lineWidth = 1; ctx.stroke();
+
+  // land + borders
+  ctx.beginPath(); path(land);
+  ctx.fillStyle = '#e4dfc8'; ctx.fill();
+  ctx.strokeStyle = 'rgba(90,110,80,.55)'; ctx.lineWidth = .7; ctx.stroke();
+  ctx.beginPath(); path(borders);
+  ctx.strokeStyle = 'rgba(90,110,90,.38)'; ctx.lineWidth = .6; ctx.stroke();
+
+  // night + eclipse shading
+  const step = state.dragging || state.playing ? 5 : 3;
+  const key = `${Math.round(state.time / 4000)}|${projection.rotate().map(v => v.toFixed(1))}|${W}x${H}|${R.toFixed(0)}|${step}`;
+  if (key !== shadeKey) { buildShade(step); shadeKey = key; }
+  ctx.save();
+  ctx.beginPath(); path({ type: 'Sphere' }); ctx.clip();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(shade, 0, 0, W, H);
+  ctx.restore();
+
+  // path of totality
+  ctx.save();
+  ctx.beginPath(); path(BAND);
+  ctx.fillStyle = 'rgba(255,120,30,.16)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(190,60,15,.85)'; ctx.lineWidth = 1.3; ctx.stroke();
+  ctx.beginPath(); path(PATH_LINE);
+  ctx.strokeStyle = 'rgba(150,35,10,.85)'; ctx.lineWidth = 1.4;
+  ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.restore();
+
+  // umbra
+  const p = shadowAxisPoint(state.time);
+  if (p) {
+    const ring = umbraRing(p, 96);
+    const poly = { type: 'Polygon', coordinates: [ring.concat([ring[0]])] };
+    ctx.save();
+    ctx.beginPath(); path(poly);
+    ctx.fillStyle = 'rgba(3,4,9,.9)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,140,60,.95)'; ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(255,140,60,.85)'; ctx.shadowBlur = 18; ctx.stroke();
+    ctx.restore();
+
+    // locator ring — the umbra is only a few pixels across when zoomed out
+    const c = projection([p.lon, p.lat]);
+    if (c && visible([p.lon, p.lat])) {
+      const t = (Date.now() % 2000) / 2000;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(c[0], c[1], 13 + t * 13, 0, 7);
+      ctx.strokeStyle = `rgba(255,130,45,${0.55 * (1 - t)})`; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(c[0], c[1], 12, 0, 7);
+      ctx.strokeStyle = 'rgba(255,150,60,.9)'; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.beginPath(); ctx.arc(c[0], c[1], 2.4, 0, 7);
+      ctx.fillStyle = '#ffe0a0'; ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  drawCities();
+  if (userLoc) drawUser();
+
+  // limb + atmosphere
+  ctx.beginPath(); path({ type: 'Sphere' });
+  ctx.strokeStyle = 'rgba(200,230,255,.55)'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, R + 1, 0, 7);
+  const glow = ctx.createRadialGradient(cx, cy, R * .95, cx, cy, R * 1.14);
+  glow.addColorStop(0, 'rgba(140,200,255,.3)'); glow.addColorStop(.4, 'rgba(120,180,245,.16)');
+  glow.addColorStop(1, 'rgba(110,170,240,0)');
+  ctx.arc(cx, cy, R * 1.14, 0, 7, true);
+  ctx.fillStyle = glow; ctx.fill();
+  ctx.restore();
+}
+
+function visible([lon, lat]) {
+  const r = projection.rotate();
+  const d = d3.geoDistance([lon, lat], [-r[0], -r[1]]);
+  return d < Math.PI / 2;
+}
+
+let starField = null;
+function drawStars() {
+  if (!starField || starField.w !== W || starField.h !== H) {
+    const pts = [];
+    let seed = 7;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    for (let i = 0; i < 260; i++) pts.push([rnd() * W, rnd() * H, rnd() * 1.1 + .25, rnd() * .55 + .2]);
+    starField = { w: W, h: H, pts };
+  }
+  for (const [x, y, r, a] of starField.pts) {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7);
+    ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.fill();
+  }
+}
+
+function drawCities() {
+  ctx.font = '600 11px -apple-system, system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  for (const [name, lat, lon] of CITIES) {
+    if (!visible([lon, lat])) continue;
+    const c = projection([lon, lat]); if (!c) continue;
+    const inPath = localCircumstances(lat, lon, state.time).total;
+    ctx.beginPath(); ctx.arc(c[0], c[1], inPath ? 3.4 : 2.2, 0, 7);
+    ctx.fillStyle = inPath ? '#ffd063' : '#1d3a58'; ctx.fill();
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = inPath ? 'rgba(0,0,0,.7)' : 'rgba(255,255,255,.7)';
+    ctx.stroke();
+
+    const show = LABEL_ALWAYS.has(name) || (R > 480 && LABEL_ZOOMED.has(name));
+    if (show && R > 190) {
+      // halo keeps labels legible over both the bright globe and the shadow
+      ctx.lineWidth = 3; ctx.lineJoin = 'round';
+      ctx.strokeStyle = inPath ? 'rgba(0,0,0,.8)' : 'rgba(255,255,255,.85)';
+      ctx.strokeText(name, c[0] + 6, c[1]);
+      ctx.fillStyle = inPath ? '#ffd98a' : '#16304a';
+      ctx.fillText(name, c[0] + 6, c[1]);
+    }
+  }
+}
+
+let userLoc = null, userContacts = null;
+function drawUser() {
+  const [lat, lon] = userLoc;
+  if (!visible([lon, lat])) return;
+  const c = projection([lon, lat]); if (!c) return;
+  ctx.beginPath(); ctx.arc(c[0], c[1], 5.5, 0, 7);
+  ctx.strokeStyle = '#6cf'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.arc(c[0], c[1], 2, 0, 7);
+  ctx.fillStyle = '#6cf'; ctx.fill();
+}
+
+/* ------------------------------------------------------------- HUD */
+const pad = n => String(Math.floor(n)).padStart(2, '0');
+const hms = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${pad(s / 3600)}:${pad((s % 3600) / 60)}:${pad(s % 60)}`; };
+const utc = t => new Date(t).toISOString().slice(11, 19);
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const localT = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+function updateHUD() {
+  const t = state.time;
+  const p = shadowAxisPoint(t);
+
+  // status badge
+  const badge = $('#statusBadge');
+  if (state.live) badge.innerHTML = '<span class="badge live"><span class="dot"></span>Live</span>';
+  else if (t < P1) badge.innerHTML = '<span class="badge">Before eclipse</span>';
+  else if (t > P4) badge.innerHTML = '<span class="badge done">Eclipse over</span>';
+  else badge.innerHTML = '<span class="badge">Simulated time</span>';
+
+  // countdown
+  const lab = $('#clockLabel'), val = $('#clockValue'), sub = $('#clockSub');
+  val.classList.toggle('hot', t >= CENTRAL.start && t <= CENTRAL.end);
+  if (t < P1) { lab.textContent = 'Eclipse begins in'; val.textContent = hms(P1 - t); sub.textContent = `First contact ${utc(P1)} UTC`; }
+  else if (t < CENTRAL.start) { lab.textContent = 'Totality begins in'; val.textContent = hms(CENTRAL.start - t); sub.textContent = `Umbra lands ${utc(CENTRAL.start)} UTC`; }
+  else if (t <= CENTRAL.end) { lab.textContent = 'Totality ends in'; val.textContent = hms(CENTRAL.end - t); sub.textContent = `Umbra leaves ${utc(CENTRAL.end)} UTC`; }
+  else if (t <= P4) { lab.textContent = 'Eclipse ends in'; val.textContent = hms(P4 - t); sub.textContent = `Last contact ${utc(P4)} UTC`; }
+  else { lab.textContent = 'Eclipse ended'; val.textContent = utc(P4); sub.textContent = 'Next total eclipse: 2 Aug 2027'; }
+
+  // stats
+  if (p) {
+    const a = shadowAxisPoint(t - 15000) || p, b = shadowAxisPoint(t + 15000) || p;
+    const km = d3.geoDistance([a.lon, a.lat], [b.lon, b.lat]) * 6378.137;
+    const vel = bearing(a.lat, a.lon, b.lat, b.lon);
+    $('#sPos').textContent = `${Math.abs(p.lat).toFixed(2)}°${p.lat >= 0 ? 'N' : 'S'} ${Math.abs(p.lon).toFixed(2)}°${p.lon >= 0 ? 'E' : 'W'}`;
+    $('#sSpeed').textContent = `${Math.round(km / 30 * 3600).toLocaleString()} km/h`;
+    $('#sWidth').textContent = `${Math.round(halfWidthKm(p, vel) * 2).toLocaleString()} km`;
+    $('#sAlt').textContent = `${p.sunAlt.toFixed(1)}°`;
+    $('#sDur').textContent = durationAt(p.lat, p.lon);
+    $('#sNear').textContent = nearestCity(p.lat, p.lon);
+  } else {
+    for (const id of ['#sPos', '#sSpeed', '#sWidth', '#sAlt', '#sDur', '#sNear']) $(id).textContent = '—';
+    $('#sPos').textContent = 'not on Earth';
+  }
+
+  // timeline
+  $('#tlTime').textContent = utc(t);
+  $('#tlZone').textContent = `UTC · ${localT(t)} local`;
+  if (!scrubbing) $('#scrub').value = Math.round((t - P1) / (P4 - P1) * 1000);
+  if (userContacts) renderUserCard();
+}
+
+function durationAt(lat, lon) {
+  const c = localContacts(lat, lon);
+  if (!c || !c.totalStart) return '—';
+  return `${Math.round((c.totalEnd - c.totalStart) / 1000)} s`;
+}
+function nearestCity(lat, lon) {
+  let best = null;
+  for (const [n, la, lo] of CITIES) {
+    const d = d3.geoDistance([lon, lat], [lo, la]) * 6378.137;
+    if (!best || d < best.d) best = { n, d };
+  }
+  return `${best.n} ${Math.round(best.d).toLocaleString()} km`;
+}
+
+/* --------------------------------------------------------- controls */
+let scrubbing = false;
+const scrub = $('#scrub');
+scrub.addEventListener('input', () => {
+  scrubbing = true; state.live = false; state.playing = false;
+  $('#playBtn').textContent = '▶ Play';
+  $('#liveBtn').classList.remove('on');
+  state.time = P1 + (P4 - P1) * (scrub.value / 1000);
+  tick(true);
+});
+scrub.addEventListener('change', () => { scrubbing = false; });
+
+$('#playBtn').addEventListener('click', () => {
+  state.playing = !state.playing;
+  if (state.playing) { state.live = false; $('#liveBtn').classList.remove('on'); if (state.time >= P4) state.time = P1; }
+  $('#playBtn').textContent = state.playing ? '❚❚ Pause' : '▶ Play';
+});
+$('#liveBtn').addEventListener('click', () => {
+  state.live = true; state.playing = false;
+  $('#playBtn').textContent = '▶ Play';
+  $('#liveBtn').classList.add('on');
+  state.time = Date.now(); tick(true);
+});
+if (state.live) $('#liveBtn').classList.add('on');
+
+const sheet = open => document.body.classList.toggle('sheet-open', open);
+$('#moreBtn').addEventListener('click', () => sheet(!document.body.classList.contains('sheet-open')));
+$('#sheetClose').addEventListener('click', () => sheet(false));
+$('#scrim').addEventListener('click', () => sheet(false));
+addEventListener('keydown', e => { if (e.key === 'Escape') sheet(false); });
+
+$('#followBtn').addEventListener('click', e => {
+  state.follow = !state.follow;
+  e.currentTarget.classList.toggle('on', state.follow);
+});
+$('#resetBtn').addEventListener('click', () => {
+  state.scale = 1; state.follow = true;
+  $('#followBtn').classList.add('on');
+  resize();
+});
+
+// drag to rotate
+let drag = null;
+canvas.addEventListener('pointerdown', e => {
+  drag = { x: e.clientX, y: e.clientY, rot: projection.rotate() };
+  state.dragging = true; state.follow = false;
+  $('#followBtn').classList.remove('on');
+  canvas.classList.add('dragging');
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const k = 0.32 * (400 / R) * 1.6;
+  const r = [drag.rot[0] + (e.clientX - drag.x) * k, drag.rot[1] - (e.clientY - drag.y) * k];
+  r[1] = Math.max(-89, Math.min(89, r[1]));
+  state.rot = r; projection.rotate([r[0], r[1]]);
+  draw();
+});
+const endDrag = () => { drag = null; state.dragging = false; canvas.classList.remove('dragging'); draw(); };
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  state.scale = Math.max(0.6, Math.min(4, state.scale * (e.deltaY < 0 ? 1.1 : 0.9)));
+  resize();
+}, { passive: false });
+
+// pinch zoom
+let pinch = null;
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) pinch = { d: touchDist(e), s: state.scale };
+}, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (pinch && e.touches.length === 2) {
+    state.scale = Math.max(0.6, Math.min(4, pinch.s * touchDist(e) / pinch.d));
+    resize();
+  }
+}, { passive: true });
+canvas.addEventListener('touchend', () => { pinch = null; }, { passive: true });
+const touchDist = e => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+
+/* -------------------------------------------------------- geolocation */
+$('#locBtn').addEventListener('click', () => {
+  const btn = $('#locBtn');
+  if (!navigator.geolocation) { btn.textContent = 'Not supported'; btn.disabled = true; return; }
+  btn.textContent = 'Locating…'; btn.disabled = true;
+  navigator.geolocation.getCurrentPosition(pos => {
+    userLoc = [pos.coords.latitude, pos.coords.longitude];
+    userContacts = localContacts(userLoc[0], userLoc[1]);
+    renderUserCard(); draw();
+  }, err => {
+    btn.disabled = false; btn.textContent = 'Use my location';
+    $('#locBody').insertAdjacentHTML('beforeend',
+      `<p class="note" style="color:#ff9a8a;margin:8px 0 0">${err.code === 1 ? 'Permission denied.' : 'Location unavailable.'}</p>`);
+  }, { timeout: 10000, maximumAge: 6e4 });
+});
+
+function renderUserCard() {
+  const body = $('#locBody');
+  const [lat, lon] = userLoc;
+  const c = userContacts;
+  const now = localCircumstances(lat, lon, state.time);
+  const coord = `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
+
+  if (!c) {
+    body.innerHTML = `<div class="big">No eclipse</div>
+      <p class="note" style="margin:6px 0 0">${coord} — the Moon's shadow doesn't reach you.</p>`;
+    return;
+  }
+  const rows = [
+    ['Now', now.sunUp ? `${(now.obscuration * 100).toFixed(1)}%` : 'Sun down'],
+    ['Starts', localT(c.start)],
+    ['Maximum', localT(c.max)],
+    ['Ends', localT(c.end)]
+  ];
+  if (c.totalStart) rows.splice(3, 0, ['Totality', `${Math.round((c.totalEnd - c.totalStart) / 1000)} s`]);
+
+  body.innerHTML = `
+    <div class="big">${(c.maxCirc.obscuration * 100).toFixed(1)}%</div>
+    <p class="note" style="margin:2px 0 9px">peak coverage · ${coord}${c.totalStart ? ' · <strong style="color:var(--gold)">TOTAL</strong>' : ''}</p>
+    ${rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:12.5px">
+        <span style="color:var(--muted)">${k}</span><span style="font-family:var(--mono)">${v}</span></div>`).join('')}
+    <p class="note" style="margin:8px 0 0">Times in ${TZ}.</p>`;
+}
+
+/* ------------------------------------------------------------- ticks */
+(function buildTicks() {
+  const el = $('#ticks'), span = P4 - P1;
+  const marks = [[P1, 'start', 0], [CENTRAL.start, 'totality', 1], [GREATEST, 'max', 0],
+                 [CENTRAL.end, 'ends', 1], [P4, 'end', 0]];
+  el.innerHTML = marks.map(([t, l, minor]) => {
+    const pct = (t - P1) / span * 100;
+    return `<span class="tick${minor ? ' minor' : ''}" style="left:${Math.max(3, Math.min(97, pct))}%">${utc(t).slice(0, 5)} ${l}</span>`;
+  }).join('');
+  const a = (CENTRAL.start - P1) / span * 100, b = (CENTRAL.end - P1) / span * 100;
+  $('#trackTotal').style.left = a + '%';
+  $('#trackTotal').style.width = (b - a) + '%';
+})();
+
+/* -------------------------------------------------------------- loop */
+function tick(force) {
+  if (state.live) state.time = Date.now();
+  else if (state.playing) {
+    state.time += 1000 * 60;
+    if (state.time > P4) { state.time = P4; state.playing = false; $('#playBtn').textContent = '▶ Play'; }
+  }
+  if (state.follow) {
+    const p = shadowAxisPoint(state.time) || { lon: ELEMENTS.greatest.lon, lat: ELEMENTS.greatest.lat };
+    const target = [-p.lon, -Math.max(-60, Math.min(75, p.lat)) * 0.75];
+    const cur = projection.rotate();
+    const lerp = (a, b, f) => a + ((((b - a) % 360) + 540) % 360 - 180) * f;
+    projection.rotate([lerp(cur[0], target[0], 0.12), cur[1] + (target[1] - cur[1]) * 0.12]);
+  }
+  draw();
+  updateHUD();
+}
+
+let hidden = false;
+document.addEventListener('visibilitychange', () => { hidden = document.hidden; });
+resize();
+tick(true);
+setInterval(() => { if (!hidden) tick(); }, 1000);
+(function raf() { if (!hidden && (state.playing || state.follow)) tick(); requestAnimationFrame(raf); })();
+
+setTimeout(() => { const h = $('#hint'); if (h) h.style.opacity = '0'; }, 6000);
+</script>
+</body>
+</html>
